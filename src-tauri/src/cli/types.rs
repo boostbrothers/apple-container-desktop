@@ -122,3 +122,29 @@ impl ColimaStatus {
         }
     }
 }
+
+#[derive(Debug, Serialize, Clone)]
+pub struct VmSettings {
+    pub cpus: u32,
+    pub memory_gib: f64,
+    pub disk_gib: f64,
+    pub runtime: String,
+    pub network_address: String,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct HostInfo {
+    pub cpus: u32,
+    pub memory_gib: f64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ColimaListEntry {
+    pub cpus: u32,
+    pub memory: u64,
+    pub disk: u64,
+    pub runtime: String,
+    #[serde(default)]
+    pub network_address: String,
+    pub status: String,
+}
