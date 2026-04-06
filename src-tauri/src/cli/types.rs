@@ -11,6 +11,8 @@ pub struct DockerPsEntry {
     pub status: String,
     pub ports: String,
     pub created_at: String,
+    #[serde(default)]
+    pub labels: String,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -22,10 +24,24 @@ pub struct Container {
     pub status: String,
     pub ports: String,
     pub created_at: String,
+    pub compose_project: Option<String>,
+    pub compose_service: Option<String>,
 }
 
 impl From<DockerPsEntry> for Container {
     fn from(entry: DockerPsEntry) -> Self {
+        let mut compose_project = None;
+        let mut compose_service = None;
+
+        for part in entry.labels.split(',') {
+            let part = part.trim();
+            if let Some(val) = part.strip_prefix("com.docker.compose.project=") {
+                compose_project = Some(val.to_string());
+            } else if let Some(val) = part.strip_prefix("com.docker.compose.service=") {
+                compose_service = Some(val.to_string());
+            }
+        }
+
         Container {
             id: entry.id,
             name: entry.names,
@@ -34,6 +50,8 @@ impl From<DockerPsEntry> for Container {
             status: entry.status,
             ports: entry.ports,
             created_at: entry.created_at,
+            compose_project,
+            compose_service,
         }
     }
 }
