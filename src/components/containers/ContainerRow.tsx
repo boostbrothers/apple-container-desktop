@@ -6,17 +6,21 @@ import { useContainerAction } from "../../hooks/useContainers";
 interface ContainerRowProps {
   container: Container;
   onViewLogs: (id: string) => void;
+  showServiceName?: boolean;
 }
 
-export function ContainerRow({ container, onViewLogs }: ContainerRowProps) {
+export function ContainerRow({ container, onViewLogs, showServiceName }: ContainerRowProps) {
   const action = useContainerAction();
   const isRunning = container.state === "running";
+  const displayName = showServiceName && container.compose_service
+    ? container.compose_service
+    : container.name;
 
   return (
     <div className="flex items-center gap-3 rounded-md border px-4 py-3">
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="font-medium text-sm truncate">{container.name}</span>
+          <span className="font-medium text-sm truncate">{displayName}</span>
           <Badge variant={isRunning ? "default" : "secondary"} className="text-xs">
             {container.state}
           </Badge>
