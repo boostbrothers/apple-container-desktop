@@ -6,6 +6,8 @@ export interface Container {
   status: string;
   ports: string;
   created_at: string;
+  compose_project: string | null;
+  compose_service: string | null;
 }
 
 export interface Image {
