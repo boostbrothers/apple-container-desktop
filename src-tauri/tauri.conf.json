@@ -35,7 +35,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEQ3QzkwRkU2OTAzMkFGNjUKUldSbHJ6S1E1Zy9KMS8xTmZpeElCU0VKbVZyemFrVlpkWWFReC9kRlU2Qm4zVXF0YlVjb0pub3EK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEE3NDAzREMxMjYzNjJBQjEKUldTeEtqWW13VDFBcDFGWTRia05GSVV0T0lMQWIrRGMvK0hHcHA4d3cxZnIybm9UNW1jRGo5VSsK",
       "endpoints": [
         "https://github.com/yoonhoGo/colima-desktop/releases/latest/download/latest.json"
       ]
