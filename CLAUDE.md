@@ -11,6 +11,7 @@ Colima Desktop — Colima(Docker container runtime on macOS)를 위한 네이티
 - **UI**: shadcn/ui + Base UI + Tailwind CSS 4
 - **State**: TanStack React Query
 - **Icons**: Lucide React
+- **Theme**: tauri-plugin-liquid-glass (macOS Liquid Glass / vibrancy)
 
 ## Project Structure
 
@@ -43,6 +44,8 @@ npm run build           # Frontend-only build (tsc + vite)
 - App communicates with Colima/Docker via CLI subprocess execution (not Docker API)
 - Rust backend runs `colima status`, `docker ps`, etc. and returns structured JSON via Tauri IPC
 - Auto-updater configured via `tauri-plugin-updater` with GitHub Releases endpoint
+- Liquid Glass UI via `tauri-plugin-liquid-glass` (macOS 26+ native, vibrancy fallback on older macOS, no-op on other platforms)
+- App icon derived from official Colima SVG logo vector (white llama silhouette + green Docker containers on dark background)
 - CI/CD: GitHub Actions with `tauri-action` for cross-platform builds
 
 ## Release Process

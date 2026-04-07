@@ -14,6 +14,7 @@ Built with **Tauri 2** (Rust) + **React 19** + **TypeScript**.
 - **VM Resource Settings** — Adjust CPU, Memory, Disk, Runtime, and Network Address with one-click apply
 - **System Tray** — Quick access to Start / Stop / Restart Colima from the menu bar
 - **Live Status** — Colima VM status indicator with auto-refresh
+- **Liquid Glass UI** — Native macOS 26+ Liquid Glass effect with vibrancy fallback on older versions
 
 ## Screenshots
 
@@ -81,6 +82,7 @@ npm run tauri build
 | Build Tool | Vite 7 |
 | UI Components | [shadcn/ui](https://ui.shadcn.com/) + Base UI |
 | Styling | Tailwind CSS 4 |
+| Theme | [tauri-plugin-liquid-glass](https://github.com/hkandala/tauri-plugin-liquid-glass) |
 | State Management | TanStack React Query |
 | Icons | Lucide React |
 

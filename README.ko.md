@@ -14,6 +14,7 @@
 - **VM 자원 설정** — CPU, Memory, Disk, Runtime, Network Address를 슬라이더로 조정하고 한 번의 클릭으로 적용
 - **시스템 트레이** — 메뉴바에서 Colima Start / Stop / Restart 빠른 접근
 - **실시간 상태** — Colima VM 상태 표시기 (자동 갱신)
+- **Liquid Glass UI** — macOS 26+ 네이티브 Liquid Glass 효과 지원 (이전 버전은 vibrancy 폴백)
 
 ## 스크린샷
 
@@ -81,6 +82,7 @@ npm run tauri build
 | 빌드 도구 | Vite 7 |
 | UI 컴포넌트 | [shadcn/ui](https://ui.shadcn.com/) + Base UI |
 | 스타일링 | Tailwind CSS 4 |
+| 테마 | [tauri-plugin-liquid-glass](https://github.com/hkandala/tauri-plugin-liquid-glass) |
 | 상태 관리 | TanStack React Query |
 | 아이콘 | Lucide React |
 
