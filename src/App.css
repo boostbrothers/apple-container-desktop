@@ -96,7 +96,7 @@
     /* Glass tokens */
     --glass-bg: rgba(255, 255, 255, 0.42);
     --glass-bg-hover: rgba(255, 255, 255, 0.52);
-    --glass-bg-active: rgba(255, 255, 255, 0.6);
+    --glass-bg-active: rgba(255, 255, 255, 0.55);
     --glass-border: rgba(255, 255, 255, 0.55);
     --glass-border-strong: rgba(255, 255, 255, 0.65);
     --glass-blur: blur(20px) saturate(180%);
@@ -202,6 +202,15 @@
     @apply font-sans;
   }
 
+  @media (prefers-reduced-motion: reduce) {
+    .glass-panel,
+    .glass-card,
+    .glass-nav-item,
+    .glass-list-item {
+      transition: none;
+    }
+  }
+
   @media (prefers-reduced-transparency: reduce) {
     :root {
       --glass-bg: rgba(240, 240, 245, 0.95);
@@ -291,6 +300,19 @@
   }
   .dark .glass-group {
     background: rgba(255, 255, 255, 0.03);
+  }
+
+  .glass-group .glass-card {
+    background: rgba(255, 255, 255, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.02), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  .dark .glass-group .glass-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.02);
   }
 
   .glass-group-child {
