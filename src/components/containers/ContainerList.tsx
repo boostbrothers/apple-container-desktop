@@ -5,10 +5,12 @@ import { ComposeGroup } from "./ComposeGroup";
 import { ContainerLogs } from "./ContainerLogs";
 import { ContainerRun } from "./ContainerRun";
 import { ContainerDetail } from "./ContainerDetail";
+import { DevContainerTab } from "./DevContainerTab";
 import { Button } from "@/components/ui/button";
 import type { Container } from "../../types";
 
 type Filter = "all" | "running" | "stopped";
+type Tab = "containers" | "devcontainers";
 
 interface ComposeGroupData {
   project: string;
@@ -19,6 +21,7 @@ export function ContainerList() {
   const { data: containers, isLoading, error } = useContainers();
   const prune = usePruneContainers();
   const [filter, setFilter] = useState<Filter>("all");
+  const [tab, setTab] = useState<Tab>("containers");
   const [logsContainerId, setLogsContainerId] = useState<string | null>(null);
   const [inspectId, setInspectId] = useState<string | null>(null);
 
@@ -66,45 +69,77 @@ export function ContainerList() {
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-lg font-semibold">Containers</h1>
-        <div className="flex gap-1">
-          {(["all", "running", "stopped"] as Filter[]).map((f) => (
-            <Button key={f} variant={filter === f ? "default" : "outline"} size="sm" onClick={() => setFilter(f)}>
-              {f.charAt(0).toUpperCase() + f.slice(1)}
-            </Button>
-          ))}
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-destructive"
-            onClick={() => prune.mutate()}
-            disabled={prune.isPending || stoppedCount === 0}
-          >
-            {prune.isPending ? "Pruning..." : "Prune"}
-          </Button>
-        </div>
+      {/* Tab Bar */}
+      <div className="flex border-b border-[var(--glass-border)] mb-4">
+        <button
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            tab === "containers"
+              ? "border-primary text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+          onClick={() => setTab("containers")}
+        >
+          Containers
+        </button>
+        <button
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            tab === "devcontainers"
+              ? "border-primary text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+          onClick={() => setTab("devcontainers")}
+        >
+          Dev Containers
+        </button>
       </div>
-      <div className="mb-4"><ContainerRun /></div>
-      {isLoading && <p className="text-sm text-muted-foreground">Loading...</p>}
-      {error && <p className="text-sm text-destructive">Failed to load containers. Is Colima running?</p>}
-      <div className="flex flex-col gap-2">
-        {composeGroups.map((group) => (
-          <ComposeGroup
-            key={group.project}
-            project={group.project}
-            containers={group.containers}
-            onViewLogs={setLogsContainerId}
-            onInspect={setInspectId}
-          />
-        ))}
-        {standalone.map((container) => (
-          <ContainerRow key={container.id} container={container} onViewLogs={setLogsContainerId} onInspect={setInspectId} />
-        ))}
-        {composeGroups.length === 0 && standalone.length === 0 && !isLoading && (
-          <p className="text-sm text-muted-foreground">No containers found.</p>
-        )}
-      </div>
+
+      {/* Containers Tab */}
+      {tab === "containers" && (
+        <>
+          <div className="mb-4 flex items-center justify-between">
+            <h1 className="text-lg font-semibold">Containers</h1>
+            <div className="flex gap-1">
+              {(["all", "running", "stopped"] as Filter[]).map((f) => (
+                <Button key={f} variant={filter === f ? "default" : "outline"} size="sm" onClick={() => setFilter(f)}>
+                  {f.charAt(0).toUpperCase() + f.slice(1)}
+                </Button>
+              ))}
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-destructive"
+                onClick={() => prune.mutate()}
+                disabled={prune.isPending || stoppedCount === 0}
+              >
+                {prune.isPending ? "Pruning..." : "Prune"}
+              </Button>
+            </div>
+          </div>
+          <div className="mb-4"><ContainerRun /></div>
+          {isLoading && <p className="text-sm text-muted-foreground">Loading...</p>}
+          {error && <p className="text-sm text-destructive">Failed to load containers. Is Colima running?</p>}
+          <div className="flex flex-col gap-2">
+            {composeGroups.map((group) => (
+              <ComposeGroup
+                key={group.project}
+                project={group.project}
+                containers={group.containers}
+                onViewLogs={setLogsContainerId}
+                onInspect={setInspectId}
+              />
+            ))}
+            {standalone.map((container) => (
+              <ContainerRow key={container.id} container={container} onViewLogs={setLogsContainerId} onInspect={setInspectId} />
+            ))}
+            {composeGroups.length === 0 && standalone.length === 0 && !isLoading && (
+              <p className="text-sm text-muted-foreground">No containers found.</p>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* Dev Containers Tab */}
+      {tab === "devcontainers" && <DevContainerTab />}
     </div>
   );
 }
