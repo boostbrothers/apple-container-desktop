@@ -13,51 +13,59 @@ export function Sidebar({ activePage, onPageChange }: SidebarProps) {
   const { data: status } = useColimaStatus();
 
   return (
-    <div className="flex h-full w-52 flex-col border-r bg-muted/30 p-3">
+    <div className="glass-sidebar flex h-full w-52 flex-col p-3">
       <div className="mb-4 flex items-center gap-2 px-2">
-        <div className={cn("h-2 w-2 rounded-full", status?.running ? "bg-green-500" : "bg-gray-400")} />
+        <div
+          className={cn("h-2 w-2 rounded-full", status?.running ? "bg-[var(--status-running-text)]" : "bg-gray-400")}
+          style={status?.running ? { boxShadow: 'var(--status-running-glow)' } : undefined}
+        />
         <span className="text-sm font-medium">Colima</span>
-        <Badge variant={status?.running ? "default" : "secondary"} className="ml-auto text-xs">
+        <Badge variant={status?.running ? "default" : "secondary"} className={cn("ml-auto text-xs", status?.running && "bg-[var(--status-running-bg)] text-[var(--status-running-text)] border border-[var(--status-running-border)]")}>
           {status?.running ? "Running" : "Stopped"}
         </Badge>
       </div>
       <nav className="flex flex-col gap-1">
         <button
           onClick={() => onPageChange("containers")}
-          className={cn("rounded-md px-3 py-2 text-left text-sm transition-colors",
-            activePage === "containers" ? "bg-accent text-accent-foreground" : "hover:bg-accent/50"
+          data-active={activePage === "containers"}
+          className={cn("glass-nav-item rounded-lg px-3 py-2 text-left text-sm",
+            activePage === "containers" ? "text-accent-foreground font-medium" : "text-muted-foreground hover:text-foreground"
           )}
         >
           Containers
         </button>
         <button
           onClick={() => onPageChange("images")}
-          className={cn("rounded-md px-3 py-2 text-left text-sm transition-colors",
-            activePage === "images" ? "bg-accent text-accent-foreground" : "hover:bg-accent/50"
+          data-active={activePage === "images"}
+          className={cn("glass-nav-item rounded-lg px-3 py-2 text-left text-sm",
+            activePage === "images" ? "text-accent-foreground font-medium" : "text-muted-foreground hover:text-foreground"
           )}
         >
           Images
         </button>
         <button
           onClick={() => onPageChange("volumes")}
-          className={cn("rounded-md px-3 py-2 text-left text-sm transition-colors",
-            activePage === "volumes" ? "bg-accent text-accent-foreground" : "hover:bg-accent/50"
+          data-active={activePage === "volumes"}
+          className={cn("glass-nav-item rounded-lg px-3 py-2 text-left text-sm",
+            activePage === "volumes" ? "text-accent-foreground font-medium" : "text-muted-foreground hover:text-foreground"
           )}
         >
           Volumes
         </button>
         <button
           onClick={() => onPageChange("networks")}
-          className={cn("rounded-md px-3 py-2 text-left text-sm transition-colors",
-            activePage === "networks" ? "bg-accent text-accent-foreground" : "hover:bg-accent/50"
+          data-active={activePage === "networks"}
+          className={cn("glass-nav-item rounded-lg px-3 py-2 text-left text-sm",
+            activePage === "networks" ? "text-accent-foreground font-medium" : "text-muted-foreground hover:text-foreground"
           )}
         >
           Networks
         </button>
         <button
           onClick={() => onPageChange("settings")}
-          className={cn("rounded-md px-3 py-2 text-left text-sm transition-colors",
-            activePage === "settings" ? "bg-accent text-accent-foreground" : "hover:bg-accent/50"
+          data-active={activePage === "settings"}
+          className={cn("glass-nav-item rounded-lg px-3 py-2 text-left text-sm",
+            activePage === "settings" ? "text-accent-foreground font-medium" : "text-muted-foreground hover:text-foreground"
           )}
         >
           Settings
