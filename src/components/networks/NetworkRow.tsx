@@ -14,7 +14,7 @@ export function NetworkRow({ network }: NetworkRowProps) {
   const isDefault = DEFAULT_NETWORKS.includes(network.name);
 
   return (
-    <div className="flex items-center gap-3 rounded-md border px-4 py-3">
+    <div className="glass-card flex items-center gap-3 px-4 py-3">
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className="font-medium text-sm truncate">{network.name}</span>
