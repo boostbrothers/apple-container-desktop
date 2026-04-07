@@ -47,10 +47,34 @@ get_latest_version() {
     info "Latest version: v${VERSION}"
 }
 
+# Map architecture to Tauri asset naming
+map_arch_macos() {
+    case "$1" in
+        aarch64) echo "aarch64" ;;
+        x86_64)  echo "x64" ;;
+    esac
+}
+
+# Find asset URL by pattern from GitHub API
+find_asset_url() {
+    PATTERN="$1"
+    ASSET_URL=$(curl -sL "https://api.github.com/repos/${REPO}/releases/latest" \
+        | grep "browser_download_url" \
+        | grep "$PATTERN" \
+        | head -1 \
+        | sed 's/.*"browser_download_url": "\(.*\)"/\1/')
+
+    if [ -z "$ASSET_URL" ]; then
+        error "Asset matching '${PATTERN}' not found in release v${VERSION}"
+    fi
+    echo "$ASSET_URL"
+}
+
 # Install on macOS
 install_macos() {
-    ASSET_NAME="Colima.Desktop_${VERSION}_${ARCH}.dmg"
-    DOWNLOAD_URL="https://github.com/${REPO}/releases/download/v${VERSION}/${ASSET_NAME}"
+    TAURI_ARCH=$(map_arch_macos "$ARCH")
+    DOWNLOAD_URL=$(find_asset_url "${TAURI_ARCH}.dmg\"")
+    ASSET_NAME=$(basename "$DOWNLOAD_URL")
 
     TMPDIR_INSTALL="$(mktemp -d)"
     DMG_PATH="${TMPDIR_INSTALL}/${ASSET_NAME}"
@@ -87,15 +111,10 @@ install_macos() {
 
 # Install on Linux
 install_linux() {
-    # Try AppImage first, then deb
-    APPIMAGE_NAME="colima-desktop_${VERSION}_${ARCH}.AppImage"
-    APPIMAGE_URL="https://github.com/${REPO}/releases/download/v${VERSION}/${APPIMAGE_NAME}"
-
-    DEB_NAME="colima-desktop_${VERSION}_${ARCH}.deb"
-    DEB_URL="https://github.com/${REPO}/releases/download/v${VERSION}/${DEB_NAME}"
-
     if command -v dpkg >/dev/null 2>&1; then
         info "Detected Debian-based system. Installing .deb package..."
+        DEB_URL=$(find_asset_url "amd64.deb\"")
+        DEB_NAME=$(basename "$DEB_URL")
         TMPDIR_INSTALL="$(mktemp -d)"
         DEB_PATH="${TMPDIR_INSTALL}/${DEB_NAME}"
 
@@ -107,6 +126,7 @@ install_linux() {
         printf "\n${GREEN}%s installed successfully!${NC}\n" "$APP_NAME"
     else
         info "Installing AppImage..."
+        APPIMAGE_URL=$(find_asset_url "amd64.AppImage\"")
         LOCAL_BIN="${HOME}/.local/bin"
         mkdir -p "$LOCAL_BIN"
 

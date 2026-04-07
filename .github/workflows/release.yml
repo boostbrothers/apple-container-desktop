@@ -72,6 +72,18 @@ jobs:
         with:
           workspaces: './src-tauri -> target'
 
+      - name: Sync version from git tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "Syncing version to ${VERSION}"
+          # Update tauri.conf.json
+          sed -i.bak "s/\"version\": \".*\"/\"version\": \"${VERSION}\"/" src-tauri/tauri.conf.json && rm src-tauri/tauri.conf.json.bak
+          # Update package.json
+          sed -i.bak "s/\"version\": \".*\"/\"version\": \"${VERSION}\"/" package.json && rm package.json.bak
+          # Update Cargo.toml
+          sed -i.bak "s/^version = \".*\"/version = \"${VERSION}\"/" src-tauri/Cargo.toml && rm src-tauri/Cargo.toml.bak
+        shell: bash
+
       - name: Install frontend dependencies
         run: npm ci
 
