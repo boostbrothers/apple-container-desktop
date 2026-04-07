@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Container, Image, ColimaStatus, VmSettings, HostInfo, Volume, Network, MountSettings, MountEntry, NetworkSettings, DnsHostEntry, DockerDaemonSettings, ContainerDetail, ContainerStats, ColimaVersion, VersionCheck } from "../types";
+import type { Container, Image, ColimaStatus, VmSettings, HostInfo, Volume, Network, MountSettings, MountEntry, NetworkSettings, DnsHostEntry, DockerDaemonSettings, ContainerDetail, ContainerStats, ColimaVersion, VersionCheck, DevContainerProject, DevContainerConfig } from "../types";
 
 export const api = {
   colimaStatus: () => invoke<ColimaStatus>("colima_status"),
@@ -52,4 +52,18 @@ export const api = {
   getColimaVersion: () => invoke<ColimaVersion>("get_colima_version"),
   updateColimaRuntime: () => invoke<string>("update_colima_runtime"),
   checkLatestVersion: () => invoke<VersionCheck>("check_latest_version"),
+  checkDevcontainerCli: () => invoke<boolean>("check_devcontainer_cli"),
+  listDevcontainerProjects: () => invoke<DevContainerProject[]>("list_devcontainer_projects"),
+  addDevcontainerProject: (workspacePath: string) =>
+    invoke<DevContainerProject>("add_devcontainer_project", { workspacePath }),
+  removeDevcontainerProject: (id: string, removeContainer: boolean) =>
+    invoke<void>("remove_devcontainer_project", { id, removeContainer }),
+  devcontainerUp: (workspacePath: string) =>
+    invoke<void>("devcontainer_up", { workspacePath }),
+  devcontainerBuild: (workspacePath: string) =>
+    invoke<void>("devcontainer_build", { workspacePath }),
+  devcontainerStop: (workspacePath: string) =>
+    invoke<void>("devcontainer_stop", { workspacePath }),
+  devcontainerReadConfig: (workspacePath: string) =>
+    invoke<DevContainerConfig>("devcontainer_read_config", { workspacePath }),
 };

@@ -152,3 +152,18 @@ export interface VersionCheck {
   latest: string;
   update_available: boolean;
 }
+
+export interface DevContainerProject {
+  id: string;
+  workspace_path: string;
+  name: string;
+  status: "running" | "stopped" | "not_built" | "building" | "path_missing";
+  container_id: string | null;
+}
+
+export interface DevContainerConfig {
+  image: string;
+  features: string[];
+  forward_ports: number[];
+  remote_user: string;
+}
