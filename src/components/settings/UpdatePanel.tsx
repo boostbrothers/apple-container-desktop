@@ -18,7 +18,7 @@ export function UpdatePanel() {
 
   if (versionError) {
     return (
-      <div className="mx-auto max-w-lg rounded-md border border-destructive p-4 text-destructive">
+      <div className="mx-auto max-w-lg glass-section border-destructive p-4 text-destructive">
         Failed to load version info: {versionError.message}
       </div>
     );
@@ -29,14 +29,14 @@ export function UpdatePanel() {
       {/* Version Info */}
       <div>
         <h2 className="text-lg font-semibold">Version Info</h2>
-        <div className="mt-2 rounded-md border p-4 space-y-3">
+        <div className="mt-2 glass-section p-4 space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">Colima Version</span>
             <span className="text-sm font-medium">{version?.version ?? "-"}</span>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">Git Commit</span>
-            <code className="text-xs font-mono bg-muted px-2 py-0.5 rounded">
+            <code className="text-xs font-mono bg-[var(--glass-bg)] px-2 py-0.5 rounded-md border border-[var(--glass-border)]">
               {version?.git_commit ?? "-"}
             </code>
           </div>
@@ -60,7 +60,7 @@ export function UpdatePanel() {
       {/* Runtime Versions */}
       <div>
         <h2 className="text-lg font-semibold">Runtime Versions</h2>
-        <div className="mt-2 rounded-md border p-4">
+        <div className="mt-2 glass-section p-4">
           {version?.runtime_versions && version.runtime_versions.length > 0 ? (
             <div className="space-y-2">
               {version.runtime_versions.map((rv) => (
@@ -79,7 +79,7 @@ export function UpdatePanel() {
       {/* Actions */}
       <div>
         <h2 className="text-lg font-semibold">Actions</h2>
-        <div className="mt-2 rounded-md border p-4 space-y-3">
+        <div className="mt-2 glass-section p-4 space-y-3">
           <div className="flex items-center gap-2">
             <Button
               onClick={() => updateMutation.mutate()}

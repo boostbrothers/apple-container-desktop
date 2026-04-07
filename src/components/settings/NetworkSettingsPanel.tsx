@@ -116,7 +116,7 @@ export function NetworkSettingsPanel() {
           ) : (
             <div className="space-y-2">
               {dns.map((server, index) => (
-                <div key={index} className="flex items-center gap-2 rounded-md border p-2">
+                <div key={index} className="glass-list-item flex items-center gap-2 p-2">
                   <span className="flex-1 truncate text-sm font-mono">{server}</span>
                   <Button
                     variant="ghost"
@@ -161,7 +161,7 @@ export function NetworkSettingsPanel() {
           ) : (
             <div className="space-y-2">
               {dnsHosts.map((entry, index) => (
-                <div key={index} className="flex items-center gap-2 rounded-md border p-2">
+                <div key={index} className="glass-list-item flex items-center gap-2 p-2">
                   <span className="flex-1 truncate text-sm font-mono">
                     {entry.hostname} → {entry.ip}
                   </span>

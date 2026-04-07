@@ -83,7 +83,7 @@ export function DockerSettingsPanel() {
           <div className="space-y-1">
             {insecureRegistries.map((registry, index) => (
               <div key={index} className="flex items-center gap-2">
-                <span className="flex-1 rounded-md border px-3 py-1.5 text-sm">
+                <span className="glass-list-item flex-1 px-3 py-1.5 text-sm">
                   {registry}
                 </span>
                 <Button
@@ -123,7 +123,7 @@ export function DockerSettingsPanel() {
           <div className="space-y-1">
             {registryMirrors.map((mirror, index) => (
               <div key={index} className="flex items-center gap-2">
-                <span className="flex-1 rounded-md border px-3 py-1.5 text-sm">
+                <span className="glass-list-item flex-1 px-3 py-1.5 text-sm">
                   {mirror}
                 </span>
                 <Button

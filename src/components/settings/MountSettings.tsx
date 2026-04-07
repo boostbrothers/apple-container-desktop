@@ -93,7 +93,7 @@ export function MountSettings() {
           ) : (
             <div className="space-y-2">
               {mounts.map((mount, index) => (
-                <div key={index} className="flex items-center gap-2 rounded-md border p-2">
+                <div key={index} className="glass-list-item flex items-center gap-2 p-2">
                   <span className="flex-1 truncate text-sm font-mono">{mount.location}</span>
                   <label className="flex items-center gap-1 text-xs text-muted-foreground">
                     <input
