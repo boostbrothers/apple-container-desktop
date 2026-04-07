@@ -351,3 +351,32 @@ pub struct ContainerStats {
     pub block_io: String,
     pub pids: String,
 }
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct DevContainerProject {
+    pub id: String,
+    pub workspace_path: String,
+    pub name: String,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct DevContainerProjectWithStatus {
+    pub id: String,
+    pub workspace_path: String,
+    pub name: String,
+    pub status: String,
+    pub container_id: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct DevContainerProjectsConfig {
+    pub projects: Vec<DevContainerProject>,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct DevContainerReadConfig {
+    pub image: String,
+    pub features: Vec<String>,
+    pub forward_ports: Vec<u16>,
+    pub remote_user: String,
+}
