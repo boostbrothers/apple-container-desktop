@@ -30,6 +30,7 @@ dirs = "6"
 tauri-plugin-dialog = "2"
 tauri-plugin-liquid-glass = "0"
 image = { version = "0.25", default-features = false, features = ["png"] }
+tempfile = "3"
 
 [profile.release]
 incremental = true

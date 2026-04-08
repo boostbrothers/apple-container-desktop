@@ -167,3 +167,47 @@ export interface DevContainerConfig {
   forward_ports: number[];
   remote_user: string;
 }
+
+// Docker Project Execution types
+
+export interface EnvVarEntry {
+  key: string;
+  value: string;
+  source: "manual" | "dotenv" | "command" | "api";
+}
+
+export type ProjectType = "dockerfile" | "compose" | "devcontainer";
+
+export interface DockerProject {
+  id: string;
+  name: string;
+  workspace_path: string;
+  project_type: ProjectType;
+  env_vars: EnvVarEntry[];
+  dotenv_path: string | null;
+  watch_mode: boolean;
+  remote_debug: boolean;
+  debug_port: number;
+  compose_file: string | null;
+  dockerfile: string | null;
+  service_name: string | null;
+  env_command: string | null;
+  ports: string[];
+  startup_command: string | null;
+  status: "running" | "stopped" | "not_created" | "path_missing" | "unknown";
+  container_ids: string[];
+}
+
+export interface AppSettings {
+  terminal: string;
+  shell: string;
+}
+
+export interface ProjectTypeDetection {
+  has_dockerfile: boolean;
+  has_compose: boolean;
+  has_devcontainer: boolean;
+  compose_files: string[];
+  dockerfiles: string[];
+  dotenv_files: string[];
+}

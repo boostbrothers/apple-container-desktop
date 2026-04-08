@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Container, Image, ColimaStatus, VmSettings, HostInfo, Volume, Network, MountSettings, MountEntry, NetworkSettings, DnsHostEntry, DockerDaemonSettings, ContainerDetail, ContainerStats, ColimaVersion, VersionCheck, DevContainerProject, DevContainerConfig } from "../types";
+import type { Container, Image, ColimaStatus, VmSettings, HostInfo, Volume, Network, MountSettings, MountEntry, NetworkSettings, DnsHostEntry, DockerDaemonSettings, ContainerDetail, ContainerStats, ColimaVersion, VersionCheck, DevContainerProject, DevContainerConfig, DockerProject, ProjectTypeDetection, EnvVarEntry, AppSettings } from "../types";
 
 export const api = {
   colimaStatus: () => invoke<ColimaStatus>("colima_status"),
@@ -66,4 +66,34 @@ export const api = {
     invoke<void>("devcontainer_stop", { workspacePath }),
   devcontainerReadConfig: (workspacePath: string) =>
     invoke<DevContainerConfig>("devcontainer_read_config", { workspacePath }),
+
+  // Docker Project Execution
+  detectProjectType: (workspacePath: string) =>
+    invoke<ProjectTypeDetection>("detect_project_type", { workspacePath }),
+  listDockerProjects: () =>
+    invoke<DockerProject[]>("list_docker_projects"),
+  addDockerProject: (params: { name: string; workspacePath: string; projectType: string; composeFile?: string; dockerfile?: string }) =>
+    invoke<DockerProject>("add_docker_project", params),
+  updateDockerProject: (project: Omit<DockerProject, "status" | "container_ids">) =>
+    invoke<void>("update_docker_project", { project }),
+  removeDockerProject: (id: string, stopContainers: boolean) =>
+    invoke<void>("remove_docker_project", { id, stopContainers }),
+  dockerProjectUp: (id: string) =>
+    invoke<void>("docker_project_up", { id }),
+  dockerProjectStop: (id: string) =>
+    invoke<void>("docker_project_stop", { id }),
+  dockerProjectLogs: (id: string) =>
+    invoke<void>("docker_project_logs", { id }),
+  dockerProjectRebuild: (id: string) =>
+    invoke<void>("docker_project_rebuild", { id }),
+  loadDotenvFile: (filePath: string) =>
+    invoke<EnvVarEntry[]>("load_dotenv_file", { filePath }),
+  runEnvCommand: (command: string, workspacePath: string) =>
+    invoke<EnvVarEntry[]>("run_env_command", { command, workspacePath }),
+  openTerminalExec: (containerId: string) =>
+    invoke<void>("open_terminal_exec", { containerId }),
+  getAppSettings: () =>
+    invoke<AppSettings>("get_app_settings"),
+  saveAppSettings: (params: { terminal: string; shell: string }) =>
+    invoke<void>("save_app_settings", params),
 };

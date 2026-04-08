@@ -1,7 +1,8 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, SquareTerminal, Copy } from "lucide-react";
 import { useContainerDetail, useContainerStats } from "../../hooks/useContainerDetail";
+import { useOpenTerminalExec } from "../../hooks/useDockerProjects";
 
 interface ContainerDetailProps {
   containerId: string;
@@ -11,6 +12,7 @@ interface ContainerDetailProps {
 export function ContainerDetail({ containerId, onBack }: ContainerDetailProps) {
   const { data: detail, isLoading, error } = useContainerDetail(containerId);
   const { data: stats } = useContainerStats(containerId);
+  const openTerminal = useOpenTerminalExec();
 
   if (isLoading) {
     return (
@@ -44,9 +46,57 @@ export function ContainerDetail({ containerId, onBack }: ContainerDetailProps) {
         </Button>
         <h1 className="text-lg font-semibold">{detail.name}</h1>
         <Badge variant={isRunning ? "default" : "secondary"}>{detail.state}</Badge>
+        {isRunning && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="ml-auto"
+            onClick={() => openTerminal.mutate(containerId)}
+            disabled={openTerminal.isPending}
+          >
+            <SquareTerminal className="h-3.5 w-3.5 mr-1" />
+            Terminal
+          </Button>
+        )}
       </div>
 
       <div className="flex flex-col gap-4">
+        {/* Terminal Exec */}
+        {isRunning && (
+          <section className="glass-section p-4">
+            <h2 className="mb-2 text-sm font-semibold">Terminal Access</h2>
+            <div className="flex items-center gap-1.5">
+              <code className="text-[11px] font-mono bg-black/30 px-2 py-1 rounded flex-1 truncate text-muted-foreground">
+                docker exec -it {containerId.slice(0, 12)} /bin/sh
+              </code>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 shrink-0"
+                onClick={() => navigator.clipboard.writeText(`docker exec -it ${containerId} /bin/sh`)}
+                title="Copy command"
+              >
+                <Copy className="h-3 w-3" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 shrink-0"
+                onClick={() => openTerminal.mutate(containerId)}
+                disabled={openTerminal.isPending}
+                title="Open in external terminal"
+              >
+                <SquareTerminal className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+            {openTerminal.isError && (
+              <p className="text-[11px] text-destructive mt-1">
+                Failed to open terminal. Check Settings &gt; Terminal.
+              </p>
+            )}
+          </section>
+        )}
+
         {/* Overview */}
         <section className="glass-section p-4">
           <h2 className="mb-3 text-sm font-semibold">Overview</h2>

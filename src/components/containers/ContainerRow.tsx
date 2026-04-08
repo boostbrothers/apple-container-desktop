@@ -1,7 +1,9 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { SquareTerminal } from "lucide-react";
 import type { Container } from "../../types";
 import { useContainerAction } from "../../hooks/useContainers";
+import { useOpenTerminalExec } from "../../hooks/useDockerProjects";
 
 interface ContainerRowProps {
   container: Container;
@@ -12,6 +14,7 @@ interface ContainerRowProps {
 
 export function ContainerRow({ container, onViewLogs, onInspect, showServiceName }: ContainerRowProps) {
   const action = useContainerAction();
+  const openTerminal = useOpenTerminalExec();
   const isRunning = container.state === "running";
   const displayName = showServiceName && container.compose_service
     ? container.compose_service
@@ -32,6 +35,18 @@ export function ContainerRow({ container, onViewLogs, onInspect, showServiceName
         </div>
       </div>
       <div className="flex items-center gap-1">
+        {isRunning && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => openTerminal.mutate(container.id)}
+            disabled={openTerminal.isPending}
+            title="Open terminal"
+          >
+            <SquareTerminal className="h-4 w-4" />
+          </Button>
+        )}
         {isRunning ? (
           <Button variant="ghost" size="sm" onClick={() => action.mutate({ id: container.id, action: "stop" })} disabled={action.isPending}>Stop</Button>
         ) : (

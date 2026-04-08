@@ -56,6 +56,20 @@ pub fn run() {
             commands::devcontainer::devcontainer_build,
             commands::devcontainer::devcontainer_stop,
             commands::devcontainer::devcontainer_read_config,
+            commands::docker_project::detect_project_type,
+            commands::docker_project::list_docker_projects,
+            commands::docker_project::add_docker_project,
+            commands::docker_project::update_docker_project,
+            commands::docker_project::remove_docker_project,
+            commands::docker_project::docker_project_up,
+            commands::docker_project::docker_project_stop,
+            commands::docker_project::docker_project_logs,
+            commands::docker_project::docker_project_rebuild,
+            commands::docker_project::load_dotenv_file,
+            commands::docker_project::run_env_command,
+            commands::docker_project::open_terminal_exec,
+            commands::app_settings::get_app_settings,
+            commands::app_settings::save_app_settings,
         ])
         .setup(|app| {
             tray::create_tray(app)?;
