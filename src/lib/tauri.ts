@@ -88,4 +88,6 @@ export const api = {
     invoke<void>("docker_project_rebuild", { id }),
   loadDotenvFile: (filePath: string) =>
     invoke<EnvVarEntry[]>("load_dotenv_file", { filePath }),
+  runEnvCommand: (command: string, workspacePath: string) =>
+    invoke<EnvVarEntry[]>("run_env_command", { command, workspacePath }),
 };

@@ -412,6 +412,8 @@ pub struct DockerProject {
     pub dockerfile: Option<String>,
     #[serde(default)]
     pub service_name: Option<String>,
+    #[serde(default)]
+    pub env_command: Option<String>,
 }
 
 fn default_debug_port() -> u16 {
@@ -432,6 +434,7 @@ pub struct DockerProjectWithStatus {
     pub compose_file: Option<String>,
     pub dockerfile: Option<String>,
     pub service_name: Option<String>,
+    pub env_command: Option<String>,
     pub status: String,
     pub container_ids: Vec<String>,
 }
@@ -451,6 +454,7 @@ impl DockerProject {
             compose_file: self.compose_file,
             dockerfile: self.dockerfile,
             service_name: self.service_name,
+            env_command: self.env_command,
             status,
             container_ids,
         }

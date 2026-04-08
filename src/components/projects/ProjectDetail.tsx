@@ -14,6 +14,7 @@ import {
   Play,
   Square,
   RotateCw,
+  Terminal,
 } from "lucide-react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { listen } from "@tauri-apps/api/event";
@@ -22,6 +23,7 @@ import {
   useUpdateDockerProject,
   useDockerProjectAction,
   useLoadDotenvFile,
+  useRunEnvCommand,
 } from "../../hooks/useDockerProjects";
 
 interface ProjectDetailProps {
@@ -33,9 +35,11 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
   const updateProject = useUpdateDockerProject();
   const action = useDockerProjectAction();
   const loadDotenv = useLoadDotenvFile();
+  const runEnvCmd = useRunEnvCommand();
 
   const [envVars, setEnvVars] = useState<EnvVarEntry[]>(project.env_vars);
   const [dotenvPath, setDotenvPath] = useState(project.dotenv_path || "");
+  const [envCommand, setEnvCommand] = useState(project.env_command || "");
   const [watchMode, setWatchMode] = useState(project.watch_mode);
   const [remoteDebug, setRemoteDebug] = useState(project.remote_debug);
   const [debugPort, setDebugPort] = useState(project.debug_port);
@@ -44,17 +48,19 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
   const [hasChanges, setHasChanges] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
   const [isRunning, setIsRunning] = useState(false);
+  const [cmdError, setCmdError] = useState<string | null>(null);
 
   // Track changes
   useEffect(() => {
     const changed =
       JSON.stringify(envVars) !== JSON.stringify(project.env_vars) ||
       dotenvPath !== (project.dotenv_path || "") ||
+      envCommand !== (project.env_command || "") ||
       watchMode !== project.watch_mode ||
       remoteDebug !== project.remote_debug ||
       debugPort !== project.debug_port;
     setHasChanges(changed);
-  }, [envVars, dotenvPath, watchMode, remoteDebug, debugPort, project]);
+  }, [envVars, dotenvPath, envCommand, watchMode, remoteDebug, debugPort, project]);
 
   // Listen for logs
   useEffect(() => {
@@ -81,6 +87,7 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
       project_type: project.project_type,
       env_vars: envVars,
       dotenv_path: dotenvPath || null,
+      env_command: envCommand || null,
       watch_mode: watchMode,
       remote_debug: remoteDebug,
       debug_port: debugPort,
@@ -129,6 +136,23 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
         setEnvVars([...entries, ...manualVars]);
       },
     });
+  };
+
+  const handleRunEnvCommand = () => {
+    if (!envCommand.trim()) return;
+    setCmdError(null);
+    runEnvCmd.mutate(
+      { command: envCommand.trim(), workspacePath: project.workspace_path },
+      {
+        onSuccess: (entries) => {
+          const manualVars = envVars.filter((v) => v.source === "manual");
+          setEnvVars([...entries, ...manualVars]);
+        },
+        onError: (err) => {
+          setCmdError(err instanceof Error ? err.message : String(err));
+        },
+      }
+    );
   };
 
   const handleAction = (type: "up" | "stop" | "rebuild") => {
@@ -272,10 +296,46 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
         <div className="glass-panel rounded-lg p-4 space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold">Environment Variables</h3>
-            <Button variant="outline" size="sm" onClick={handleLoadDotenv}>
-              <FileText className="h-3.5 w-3.5 mr-1" />
-              Load .env
-            </Button>
+            <div className="flex gap-1">
+              <Button variant="outline" size="sm" onClick={handleLoadDotenv}>
+                <FileText className="h-3.5 w-3.5 mr-1" />
+                .env File
+              </Button>
+            </div>
+          </div>
+
+          {/* Command to fetch env vars */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Terminal className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              <Input
+                placeholder="e.g. infisical export, doppler secrets download --no-file --format env"
+                value={envCommand}
+                onChange={(e) => setEnvCommand(e.target.value)}
+                className="h-7 text-xs font-mono flex-1"
+                onKeyDown={(e) => e.key === "Enter" && handleRunEnvCommand()}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRunEnvCommand}
+                disabled={runEnvCmd.isPending || !envCommand.trim()}
+                className="shrink-0"
+              >
+                {runEnvCmd.isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Play className="h-3.5 w-3.5 mr-1" />
+                )}
+                {runEnvCmd.isPending ? "Running..." : "Run"}
+              </Button>
+            </div>
+            <p className="text-[10px] text-muted-foreground pl-5.5">
+              Run a command that outputs KEY=VALUE lines (infisical, doppler, vault, aws ssm, etc.)
+            </p>
+            {cmdError && (
+              <p className="text-[11px] text-destructive pl-5.5">{cmdError}</p>
+            )}
           </div>
 
           {dotenvPath && (

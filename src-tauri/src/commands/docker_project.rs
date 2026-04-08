@@ -258,6 +258,7 @@ pub async fn add_docker_project(
         compose_file,
         dockerfile,
         service_name: None,
+        env_command: None,
     };
 
     projects.push(project.clone());
@@ -752,6 +753,56 @@ pub async fn load_dotenv_file(file_path: String) -> Result<Vec<EnvVarEntry>, Str
                 source: "dotenv".to_string(),
             });
         }
+    }
+
+    Ok(entries)
+}
+
+#[tauri::command]
+pub async fn run_env_command(command: String, workspace_path: String) -> Result<Vec<EnvVarEntry>, String> {
+    let output = Command::new("sh")
+        .args(["-c", &command])
+        .current_dir(&workspace_path)
+        .env("DOCKER_HOST", docker_host())
+        .output()
+        .await
+        .map_err(|e| format!("Failed to execute command: {}", e))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("Command failed: {}", stderr.trim()));
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let mut entries = Vec::new();
+
+    for line in stdout.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        if let Some(eq_pos) = line.find('=') {
+            let key = line[..eq_pos].trim().to_string();
+            if key.is_empty() {
+                continue;
+            }
+            let mut value = line[eq_pos + 1..].trim().to_string();
+            // Strip surrounding quotes
+            if (value.starts_with('"') && value.ends_with('"'))
+                || (value.starts_with('\'') && value.ends_with('\''))
+            {
+                value = value[1..value.len() - 1].to_string();
+            }
+            entries.push(EnvVarEntry {
+                key,
+                value,
+                source: "command".to_string(),
+            });
+        }
+    }
+
+    if entries.is_empty() {
+        return Err("Command produced no KEY=VALUE output. Expected format: KEY=VALUE per line.".to_string());
     }
 
     Ok(entries)

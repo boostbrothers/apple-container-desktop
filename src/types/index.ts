@@ -173,7 +173,7 @@ export interface DevContainerConfig {
 export interface EnvVarEntry {
   key: string;
   value: string;
-  source: "manual" | "dotenv" | "api";
+  source: "manual" | "dotenv" | "command" | "api";
 }
 
 export type ProjectType = "dockerfile" | "compose" | "devcontainer";
@@ -191,6 +191,7 @@ export interface DockerProject {
   compose_file: string | null;
   dockerfile: string | null;
   service_name: string | null;
+  env_command: string | null;
   status: "running" | "stopped" | "not_created" | "path_missing" | "unknown";
   container_ids: string[];
 }

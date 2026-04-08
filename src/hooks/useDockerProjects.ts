@@ -86,3 +86,10 @@ export function useLoadDotenvFile() {
     mutationFn: (filePath: string) => api.loadDotenvFile(filePath),
   });
 }
+
+export function useRunEnvCommand() {
+  return useMutation({
+    mutationFn: ({ command, workspacePath }: { command: string; workspacePath: string }) =>
+      api.runEnvCommand(command, workspacePath),
+  });
+}
