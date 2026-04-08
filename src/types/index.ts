@@ -198,6 +198,11 @@ export interface DockerProject {
   container_ids: string[];
 }
 
+export interface AppSettings {
+  terminal: string;
+  shell: string;
+}
+
 export interface ProjectTypeDetection {
   has_dockerfile: boolean;
   has_compose: boolean;

@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Container, Image, ColimaStatus, VmSettings, HostInfo, Volume, Network, MountSettings, MountEntry, NetworkSettings, DnsHostEntry, DockerDaemonSettings, ContainerDetail, ContainerStats, ColimaVersion, VersionCheck, DevContainerProject, DevContainerConfig, DockerProject, ProjectTypeDetection, EnvVarEntry } from "../types";
+import type { Container, Image, ColimaStatus, VmSettings, HostInfo, Volume, Network, MountSettings, MountEntry, NetworkSettings, DnsHostEntry, DockerDaemonSettings, ContainerDetail, ContainerStats, ColimaVersion, VersionCheck, DevContainerProject, DevContainerConfig, DockerProject, ProjectTypeDetection, EnvVarEntry, AppSettings } from "../types";
 
 export const api = {
   colimaStatus: () => invoke<ColimaStatus>("colima_status"),
@@ -90,4 +90,10 @@ export const api = {
     invoke<EnvVarEntry[]>("load_dotenv_file", { filePath }),
   runEnvCommand: (command: string, workspacePath: string) =>
     invoke<EnvVarEntry[]>("run_env_command", { command, workspacePath }),
+  openTerminalExec: (containerId: string) =>
+    invoke<void>("open_terminal_exec", { containerId }),
+  getAppSettings: () =>
+    invoke<AppSettings>("get_app_settings"),
+  saveAppSettings: (params: { terminal: string; shell: string }) =>
+    invoke<void>("save_app_settings", params),
 };

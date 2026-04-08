@@ -67,6 +67,9 @@ pub fn run() {
             commands::docker_project::docker_project_rebuild,
             commands::docker_project::load_dotenv_file,
             commands::docker_project::run_env_command,
+            commands::docker_project::open_terminal_exec,
+            commands::app_settings::get_app_settings,
+            commands::app_settings::save_app_settings,
         ])
         .setup(|app| {
             tray::create_tray(app)?;

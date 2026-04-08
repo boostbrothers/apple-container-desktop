@@ -1,3 +1,4 @@
+pub mod app_settings;
 pub mod colima;
 pub mod container;
 pub mod docker_project;

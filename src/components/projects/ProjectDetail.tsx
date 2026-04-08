@@ -15,6 +15,8 @@ import {
   Square,
   RotateCw,
   Terminal,
+  Copy,
+  SquareTerminal,
 } from "lucide-react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { listen } from "@tauri-apps/api/event";
@@ -24,6 +26,7 @@ import {
   useDockerProjectAction,
   useLoadDotenvFile,
   useRunEnvCommand,
+  useOpenTerminalExec,
 } from "../../hooks/useDockerProjects";
 
 interface ProjectDetailProps {
@@ -36,6 +39,7 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
   const action = useDockerProjectAction();
   const loadDotenv = useLoadDotenvFile();
   const runEnvCmd = useRunEnvCommand();
+  const openTerminal = useOpenTerminalExec();
 
   const [envVars, setEnvVars] = useState<EnvVarEntry[]>(project.env_vars);
   const [dotenvPath, setDotenvPath] = useState(project.dotenv_path || "");
@@ -541,21 +545,52 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
           </div>
         )}
 
-        {/* Container Info */}
+        {/* Container Info & Terminal */}
         {project.status === "running" && project.container_ids.length > 0 && (
-          <div className="glass-panel rounded-lg p-4 space-y-2">
+          <div className="glass-panel rounded-lg p-4 space-y-3">
             <h3 className="text-sm font-semibold">Running Containers</h3>
-            <div className="space-y-1">
-              {project.container_ids.map((cid) => (
-                <div
-                  key={cid}
-                  className="rounded-md bg-muted/20 px-3 py-1.5 flex items-center gap-2"
-                >
-                  <div className="h-2 w-2 rounded-full bg-[var(--status-running-text)]" />
-                  <code className="text-[11px] font-mono">{cid}</code>
-                </div>
-              ))}
+            <div className="space-y-2">
+              {project.container_ids.map((cid) => {
+                const execCmd = `docker exec -it ${cid} /bin/sh`;
+                return (
+                  <div key={cid} className="space-y-1.5">
+                    <div className="rounded-md bg-muted/20 px-3 py-2 flex items-center gap-2">
+                      <div className="h-2 w-2 rounded-full bg-[var(--status-running-text)] shrink-0" />
+                      <code className="text-[11px] font-mono flex-1 truncate">{cid}</code>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 shrink-0"
+                        onClick={() => openTerminal.mutate(cid)}
+                        disabled={openTerminal.isPending}
+                        title="Open in external terminal"
+                      >
+                        <SquareTerminal className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                    <div className="flex items-center gap-1.5 pl-4">
+                      <code className="text-[10px] font-mono bg-black/30 px-2 py-1 rounded flex-1 truncate text-muted-foreground">
+                        {execCmd}
+                      </code>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 shrink-0"
+                        onClick={() => navigator.clipboard.writeText(execCmd)}
+                        title="Copy command"
+                      >
+                        <Copy className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
+            {openTerminal.isError && (
+              <p className="text-[11px] text-destructive">
+                {openTerminal.error instanceof Error ? openTerminal.error.message : "Failed to open terminal. Check Settings > Terminal."}
+              </p>
+            )}
           </div>
         )}
       </div>

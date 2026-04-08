@@ -81,6 +81,12 @@ export function useDockerProjectLogs() {
   });
 }
 
+export function useOpenTerminalExec() {
+  return useMutation({
+    mutationFn: (containerId: string) => api.openTerminalExec(containerId),
+  });
+}
+
 export function useLoadDotenvFile() {
   return useMutation({
     mutationFn: (filePath: string) => api.loadDotenvFile(filePath),

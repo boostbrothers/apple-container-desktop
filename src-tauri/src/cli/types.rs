@@ -474,6 +474,35 @@ pub struct DockerProjectsConfig {
     pub projects: Vec<DockerProject>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct AppSettings {
+    #[serde(default = "default_terminal")]
+    pub terminal: String,
+    #[serde(default = "default_shell")]
+    pub shell: String,
+}
+
+fn default_terminal() -> String {
+    if cfg!(target_os = "macos") {
+        "Terminal.app".to_string()
+    } else {
+        "xterm".to_string()
+    }
+}
+
+fn default_shell() -> String {
+    "/bin/sh".to_string()
+}
+
+impl Default for AppSettings {
+    fn default() -> Self {
+        AppSettings {
+            terminal: default_terminal(),
+            shell: default_shell(),
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Clone)]
 pub struct ProjectTypeDetection {
     pub has_dockerfile: bool,

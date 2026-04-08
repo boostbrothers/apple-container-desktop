@@ -946,3 +946,81 @@ pub async fn docker_project_rebuild(app: AppHandle, id: String) -> Result<(), St
         _ => Err(format!("Unknown project type: {}", project.project_type)),
     }
 }
+
+#[tauri::command]
+pub async fn open_terminal_exec(container_id: String) -> Result<(), String> {
+    let settings = crate::commands::app_settings::load_app_settings();
+    let docker_host_val = docker_host();
+    let exec_cmd = format!(
+        "DOCKER_HOST={} {} exec -it {} {}",
+        docker_host_val, DOCKER, container_id, settings.shell
+    );
+
+    let terminal = settings.terminal;
+
+    if cfg!(target_os = "macos") {
+        if terminal.contains("iTerm") {
+            let script = format!(
+                r#"tell application "iTerm"
+  activate
+  set newWindow to (create window with default profile)
+  tell current session of newWindow
+    write text "{}"
+  end tell
+end tell"#,
+                exec_cmd
+            );
+            Command::new("osascript")
+                .args(["-e", &script])
+                .spawn()
+                .map_err(|e| format!("Failed to open iTerm: {}", e))?;
+        } else if terminal.contains("Warp") {
+            let script = format!(
+                r#"tell application "Warp" to activate
+delay 0.5
+tell application "System Events"
+  keystroke "{}"
+  key code 36
+end tell"#,
+                exec_cmd
+            );
+            Command::new("osascript")
+                .args(["-e", &script])
+                .spawn()
+                .map_err(|e| format!("Failed to open Warp: {}", e))?;
+        } else {
+            let script = format!(
+                r#"tell application "{}"
+  activate
+  do script "{}"
+end tell"#,
+                terminal, exec_cmd
+            );
+            Command::new("osascript")
+                .args(["-e", &script])
+                .spawn()
+                .map_err(|e| format!("Failed to open terminal: {}", e))?;
+        }
+    } else {
+        // Linux
+        let result = if terminal.contains("gnome-terminal") {
+            Command::new(&terminal)
+                .args(["--", "bash", "-c", &exec_cmd])
+                .spawn()
+        } else if terminal.contains("konsole") || terminal.contains("alacritty")
+            || terminal.contains("kitty") || terminal.contains("wezterm")
+        {
+            Command::new(&terminal)
+                .args(["-e", "bash", "-c", &exec_cmd])
+                .spawn()
+        } else {
+            Command::new(&terminal)
+                .args(["-e", &exec_cmd])
+                .spawn()
+        };
+
+        result.map_err(|e| format!("Failed to open terminal '{}': {}", terminal, e))?;
+    }
+
+    Ok(())
+}
