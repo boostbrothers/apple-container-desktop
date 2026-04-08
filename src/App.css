@@ -327,4 +327,27 @@
   .glass-list-item:hover {
     background: var(--glass-bg-hover);
   }
+
+  .onboarding-step {
+    transition: opacity 0.3s ease, transform 0.3s ease;
+  }
+
+  .onboarding-step-enter {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  .onboarding-step-active {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .onboarding-step-exit {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+
+  .onboarding-dot {
+    transition: background-color 0.3s ease, transform 0.3s ease;
+  }
 }
