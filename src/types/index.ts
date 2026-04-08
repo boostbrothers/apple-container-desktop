@@ -168,6 +168,11 @@ export interface DevContainerConfig {
   remote_user: string;
 }
 
+export interface ColimaInstallCheck {
+  installed: boolean;
+  path: string | null;
+}
+
 // Docker Project Execution types
 
 export interface EnvVarEntry {

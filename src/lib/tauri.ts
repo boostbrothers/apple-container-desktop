@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Container, Image, ColimaStatus, VmSettings, HostInfo, Volume, Network, MountSettings, MountEntry, NetworkSettings, DnsHostEntry, DockerDaemonSettings, ContainerDetail, ContainerStats, ColimaVersion, VersionCheck, DevContainerProject, DevContainerConfig, DockerProject, ProjectTypeDetection, EnvVarEntry, AppSettings } from "../types";
+import type { Container, Image, ColimaStatus, VmSettings, HostInfo, Volume, Network, MountSettings, MountEntry, NetworkSettings, DnsHostEntry, DockerDaemonSettings, ContainerDetail, ContainerStats, ColimaVersion, VersionCheck, DevContainerProject, DevContainerConfig, ColimaInstallCheck, DockerProject, ProjectTypeDetection, EnvVarEntry, AppSettings } from "../types";
 
 export const api = {
   colimaStatus: () => invoke<ColimaStatus>("colima_status"),
@@ -66,6 +66,9 @@ export const api = {
     invoke<void>("devcontainer_stop", { workspacePath }),
   devcontainerReadConfig: (workspacePath: string) =>
     invoke<DevContainerConfig>("devcontainer_read_config", { workspacePath }),
+  checkColimaInstalled: () => invoke<ColimaInstallCheck>("check_colima_installed"),
+  checkOnboardingNeeded: () => invoke<boolean>("check_onboarding_needed"),
+  completeOnboarding: () => invoke<void>("complete_onboarding"),
 
   // Docker Project Execution
   detectProjectType: (workspacePath: string) =>

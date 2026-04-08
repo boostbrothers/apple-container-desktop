@@ -10,10 +10,11 @@ import { MountSettings } from "../settings/MountSettings";
 import { NetworkSettingsPanel } from "../settings/NetworkSettingsPanel";
 import { DockerSettingsPanel } from "../settings/DockerSettingsPanel";
 import { UpdatePanel } from "../settings/UpdatePanel";
+import { AppearanceSettings } from "../settings/AppearanceSettings";
 import { TerminalSettings } from "../settings/TerminalSettings";
 
 type Page = "containers" | "projects" | "images" | "volumes" | "networks" | "settings";
-type SettingsTab = "vm" | "mounts" | "network" | "docker" | "terminal" | "update";
+type SettingsTab = "vm" | "mounts" | "network" | "docker" | "terminal" | "update" | "appearance";
 
 export function MainLayout() {
   const [activePage, setActivePage] = useState<Page>("containers");
@@ -91,6 +92,16 @@ export function MainLayout() {
               >
                 Update
               </button>
+              <button
+                onClick={() => setSettingsTab("appearance")}
+                className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium transition-all ${
+                  settingsTab === "appearance"
+                    ? "bg-[var(--glass-bg-active)] text-foreground shadow-sm border border-[var(--glass-border-strong)]"
+                    : "text-muted-foreground hover:text-foreground border border-transparent"
+                }`}
+              >
+                Appearance
+              </button>
             </div>
             {settingsTab === "vm" && <VmSettings />}
             {settingsTab === "mounts" && <MountSettings />}
@@ -98,6 +109,7 @@ export function MainLayout() {
             {settingsTab === "docker" && <DockerSettingsPanel />}
             {settingsTab === "terminal" && <TerminalSettings />}
             {settingsTab === "update" && <UpdatePanel />}
+            {settingsTab === "appearance" && <AppearanceSettings />}
           </div>
         )}
       </main>
