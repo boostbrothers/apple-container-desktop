@@ -192,6 +192,8 @@ export interface DockerProject {
   dockerfile: string | null;
   service_name: string | null;
   env_command: string | null;
+  ports: string[];
+  startup_command: string | null;
   status: "running" | "stopped" | "not_created" | "path_missing" | "unknown";
   container_ids: string[];
 }

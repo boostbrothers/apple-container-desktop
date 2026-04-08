@@ -259,6 +259,8 @@ pub async fn add_docker_project(
         dockerfile,
         service_name: None,
         env_command: None,
+        ports: Vec::new(),
+        startup_command: None,
     };
 
     projects.push(project.clone());
@@ -581,6 +583,14 @@ async fn dockerfile_up(
     // Add env vars
     run_args.extend(collect_env_args(project, app, event_name).await?);
 
+    // Add port mappings
+    for port in &project.ports {
+        if !port.trim().is_empty() {
+            run_args.push("-p".to_string());
+            run_args.push(port.trim().to_string());
+        }
+    }
+
     // Add debug port if enabled
     if project.remote_debug {
         run_args.push("-p".to_string());
@@ -588,6 +598,16 @@ async fn dockerfile_up(
     }
 
     run_args.push(image_tag);
+
+    // Add startup command if specified
+    if let Some(ref cmd) = project.startup_command {
+        if !cmd.trim().is_empty() {
+            // Split by shell words
+            for part in cmd.split_whitespace() {
+                run_args.push(part.to_string());
+            }
+        }
+    }
 
     let str_args: Vec<&str> = run_args.iter().map(|s| s.as_str()).collect();
 

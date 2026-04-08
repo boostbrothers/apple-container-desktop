@@ -43,6 +43,8 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
   const [watchMode, setWatchMode] = useState(project.watch_mode);
   const [remoteDebug, setRemoteDebug] = useState(project.remote_debug);
   const [debugPort, setDebugPort] = useState(project.debug_port);
+  const [ports, setPorts] = useState<string[]>(project.ports.length > 0 ? project.ports : [""]);
+  const [startupCommand, setStartupCommand] = useState(project.startup_command || "");
   const [newKey, setNewKey] = useState("");
   const [newValue, setNewValue] = useState("");
   const [hasChanges, setHasChanges] = useState(false);
@@ -58,9 +60,11 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
       envCommand !== (project.env_command || "") ||
       watchMode !== project.watch_mode ||
       remoteDebug !== project.remote_debug ||
-      debugPort !== project.debug_port;
+      debugPort !== project.debug_port ||
+      JSON.stringify(ports.filter(Boolean)) !== JSON.stringify(project.ports) ||
+      startupCommand !== (project.startup_command || "");
     setHasChanges(changed);
-  }, [envVars, dotenvPath, envCommand, watchMode, remoteDebug, debugPort, project]);
+  }, [envVars, dotenvPath, envCommand, watchMode, remoteDebug, debugPort, ports, startupCommand, project]);
 
   // Listen for logs
   useEffect(() => {
@@ -94,6 +98,8 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
       compose_file: project.compose_file,
       dockerfile: project.dockerfile,
       service_name: project.service_name,
+      ports: ports.filter(Boolean),
+      startup_command: startupCommand || null,
     });
   };
 
@@ -290,6 +296,67 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
               />
             </div>
           )}
+
+          <div className="border-t border-[var(--glass-border)]" />
+
+          {/* Port Mappings */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Ports</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 text-xs"
+                onClick={() => setPorts([...ports, ""])}
+              >
+                <Plus className="h-3 w-3 mr-1" /> Add
+              </Button>
+            </div>
+            {ports.map((port, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <Input
+                  placeholder="8080:8080"
+                  value={port}
+                  onChange={(e) => {
+                    const next = [...ports];
+                    next[i] = e.target.value;
+                    setPorts(next);
+                  }}
+                  className="h-7 text-xs font-mono flex-1"
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 shrink-0"
+                  onClick={() => setPorts(ports.filter((_, j) => j !== i))}
+                  disabled={ports.length <= 1}
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+            ))}
+            <p className="text-[10px] text-muted-foreground">
+              host:container format (e.g. 3000:3000, 5432:5432)
+              {project.project_type === "compose" && " — Compose projects use ports from YAML."}
+            </p>
+          </div>
+
+          <div className="border-t border-[var(--glass-border)]" />
+
+          {/* Startup Command */}
+          <div className="space-y-2">
+            <span className="text-sm">Startup Command</span>
+            <Input
+              placeholder="e.g. npm run dev, python manage.py runserver"
+              value={startupCommand}
+              onChange={(e) => setStartupCommand(e.target.value)}
+              className="h-7 text-xs font-mono"
+            />
+            <p className="text-[10px] text-muted-foreground">
+              Override the default container CMD.
+              {project.project_type === "compose" && " For Compose, set 'command' in your YAML instead."}
+            </p>
+          </div>
         </div>
 
         {/* Environment Variables */}
