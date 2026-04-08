@@ -56,6 +56,9 @@ pub fn run() {
             commands::devcontainer::devcontainer_build,
             commands::devcontainer::devcontainer_stop,
             commands::devcontainer::devcontainer_read_config,
+            commands::onboarding::check_colima_installed,
+            commands::onboarding::check_onboarding_needed,
+            commands::onboarding::complete_onboarding,
         ])
         .setup(|app| {
             tray::create_tray(app)?;
