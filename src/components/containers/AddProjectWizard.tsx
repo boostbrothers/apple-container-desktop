@@ -3,9 +3,10 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { FolderOpen, Check, X } from "lucide-react";
+import { FolderOpen, Check, X, Plus } from "lucide-react";
 import { api } from "../../lib/tauri";
-import { useAddDockerProject } from "../../hooks/useDockerProjects";
+import { useAddProject } from "../../hooks/useProjects";
+import { DevcontainerConfigEditor } from "../devcontainer-config/DevcontainerConfigEditor";
 import type { ProjectTypeDetection, ProjectType } from "../../types";
 
 interface AddProjectWizardProps {
@@ -13,7 +14,7 @@ interface AddProjectWizardProps {
 }
 
 export function AddProjectWizard({ onClose }: AddProjectWizardProps) {
-  const addProject = useAddDockerProject();
+  const addProject = useAddProject();
   const [step, setStep] = useState<"select" | "configure">("select");
   const [workspacePath, setWorkspacePath] = useState("");
   const [detection, setDetection] = useState<ProjectTypeDetection | null>(null);
@@ -23,6 +24,7 @@ export function AddProjectWizard({ onClose }: AddProjectWizardProps) {
   const [dockerfile, setDockerfile] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [detecting, setDetecting] = useState(false);
+  const [showDevcontainerConfig, setShowDevcontainerConfig] = useState(false);
 
   const handleSelectFolder = async () => {
     const selected = await open({ directory: true, multiple: false });
@@ -81,9 +83,22 @@ export function AddProjectWizard({ onClose }: AddProjectWizardProps) {
     );
   };
 
-  const canDetect =
-    detection &&
-    (detection.has_compose || detection.has_dockerfile || detection.has_devcontainer);
+  // Always show configure section when detection is done -- DevContainer is always available
+  const canDetect = !!detection;
+
+  if (showDevcontainerConfig && workspacePath) {
+    return (
+      <div className="glass-panel rounded-lg p-4 space-y-4">
+        <DevcontainerConfigEditor
+          workspacePath={workspacePath}
+          projectName={name || workspacePath.split("/").pop() || "project"}
+          onClose={() => {
+            setShowDevcontainerConfig(false);
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="glass-panel rounded-lg p-4 space-y-4">
@@ -178,15 +193,15 @@ export function AddProjectWizard({ onClose }: AddProjectWizardProps) {
                       Dockerfile
                     </Button>
                   )}
-                  {detection.has_devcontainer && (
-                    <Button
-                      variant={projectType === "devcontainer" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setProjectType("devcontainer")}
-                    >
-                      DevContainer
-                    </Button>
-                  )}
+                  <Button
+                    variant={projectType === "devcontainer" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setProjectType("devcontainer")}
+                  >
+                    {detection.has_devcontainer ? "DevContainer" : (
+                      <><Plus className="h-3 w-3 mr-1" />DevContainer</>
+                    )}
+                  </Button>
                 </div>
               </div>
 
@@ -244,6 +259,23 @@ export function AddProjectWizard({ onClose }: AddProjectWizardProps) {
                   <div className="text-[10px] text-muted-foreground mt-1">
                     Configure in project settings after adding.
                   </div>
+                </div>
+              )}
+
+              {/* DevContainer config editor button */}
+              {projectType === "devcontainer" && !detection.has_devcontainer && (
+                <div className="rounded-md border border-blue-500/20 bg-blue-500/5 px-3 py-2">
+                  <p className="text-xs text-blue-400 mb-2">
+                    No devcontainer.json found. Create one to configure the dev container.
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowDevcontainerConfig(true)}
+                  >
+                    <Plus className="h-3.5 w-3.5 mr-1" />
+                    Create devcontainer.json
+                  </Button>
                 </div>
               )}
 

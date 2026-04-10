@@ -1,7 +1,7 @@
 use crate::cli::executor::{docker_host, CliExecutor};
 use crate::cli::types::{
-    DockerProject, DockerProjectWithStatus, DockerProjectsConfig, EnvVarEntry,
-    ProjectTypeDetection,
+    Project, ProjectWithStatus, ProjectsConfig, EnvVarEntry,
+    ProjectTypeDetection, ProjectEnvBinding,
 };
 use tauri::{AppHandle, Emitter};
 use tokio::io::{AsyncBufReadExt, BufReader};
@@ -14,24 +14,120 @@ fn config_path() -> Result<std::path::PathBuf, String> {
     let app_dir = config_dir.join("colima-desktop");
     std::fs::create_dir_all(&app_dir)
         .map_err(|e| format!("Failed to create config dir: {}", e))?;
-    Ok(app_dir.join("docker-projects.json"))
+    Ok(app_dir.join("projects.json"))
 }
 
-fn load_projects() -> Result<Vec<DockerProject>, String> {
+/// Migrate old config files (docker-projects.json, devcontainer-projects.json)
+/// into the unified projects.json format.
+fn migrate_config_if_needed() -> Result<(), String> {
+    let config_dir = dirs::config_dir().ok_or("Cannot find config directory")?;
+    let app_dir = config_dir.join("colima-desktop");
+    std::fs::create_dir_all(&app_dir)
+        .map_err(|e| format!("Failed to create config dir: {}", e))?;
+
+    let new_path = app_dir.join("projects.json");
+    if new_path.exists() {
+        return Ok(());
+    }
+
+    let mut merged_projects: Vec<Project> = Vec::new();
+
+    // Read docker-projects.json if it exists
+    let docker_path = app_dir.join("docker-projects.json");
+    if docker_path.exists() {
+        if let Ok(content) = std::fs::read_to_string(&docker_path) {
+            if let Ok(config) = serde_json::from_str::<ProjectsConfig>(&content) {
+                merged_projects.extend(config.projects);
+            }
+        }
+    }
+
+    // Read devcontainer-projects.json if it exists (old format)
+    let devcontainer_path = app_dir.join("devcontainer-projects.json");
+    if devcontainer_path.exists() {
+        if let Ok(content) = std::fs::read_to_string(&devcontainer_path) {
+            // Old format: { projects: [{ id, workspace_path, name }] }
+            #[derive(serde::Deserialize)]
+            struct OldDevContainerProject {
+                id: String,
+                workspace_path: String,
+                name: String,
+            }
+            #[derive(serde::Deserialize)]
+            struct OldDevContainerConfig {
+                projects: Vec<OldDevContainerProject>,
+            }
+
+            if let Ok(old_config) = serde_json::from_str::<OldDevContainerConfig>(&content) {
+                for old_proj in old_config.projects {
+                    // Skip duplicates by workspace_path
+                    if merged_projects.iter().any(|p| p.workspace_path == old_proj.workspace_path) {
+                        continue;
+                    }
+                    merged_projects.push(Project {
+                        id: old_proj.id,
+                        name: old_proj.name,
+                        workspace_path: old_proj.workspace_path,
+                        project_type: "devcontainer".to_string(),
+                        env_vars: Vec::new(),
+                        dotenv_path: None,
+                        watch_mode: false,
+                        remote_debug: false,
+                        debug_port: 9229,
+                        compose_file: None,
+                        dockerfile: None,
+                        service_name: None,
+                        env_command: None,
+                        ports: Vec::new(),
+                        startup_command: None,
+                        active_profile: "default".to_string(),
+                        profiles: vec!["default".to_string()],
+                        infisical_config: None,
+                        env_binding: ProjectEnvBinding::default(),
+                    });
+                }
+            }
+        }
+    }
+
+    // Only write if we found any old data
+    if !merged_projects.is_empty() {
+        let config = ProjectsConfig {
+            projects: merged_projects,
+        };
+        let content = serde_json::to_string_pretty(&config)
+            .map_err(|e| format!("Failed to serialize migrated config: {}", e))?;
+        std::fs::write(&new_path, content)
+            .map_err(|e| format!("Failed to write migrated config: {}", e))?;
+    }
+
+    // Rename old files to .bak
+    if docker_path.exists() {
+        let _ = std::fs::rename(&docker_path, app_dir.join("docker-projects.json.bak"));
+    }
+    if devcontainer_path.exists() {
+        let _ = std::fs::rename(&devcontainer_path, app_dir.join("devcontainer-projects.json.bak"));
+    }
+
+    Ok(())
+}
+
+pub fn load_projects() -> Result<Vec<Project>, String> {
+    migrate_config_if_needed()?;
     let path = config_path()?;
     if !path.exists() {
         return Ok(Vec::new());
     }
     let content =
         std::fs::read_to_string(&path).map_err(|e| format!("Failed to read config: {}", e))?;
-    let config: DockerProjectsConfig =
+    let config: ProjectsConfig =
         serde_json::from_str(&content).map_err(|e| format!("Failed to parse config: {}", e))?;
     Ok(config.projects)
 }
 
-fn save_projects(projects: &[DockerProject]) -> Result<(), String> {
+pub fn save_projects(projects: &[Project]) -> Result<(), String> {
     let path = config_path()?;
-    let config = DockerProjectsConfig {
+    let config = ProjectsConfig {
         projects: projects.to_vec(),
     };
     let content =
@@ -40,12 +136,47 @@ fn save_projects(projects: &[DockerProject]) -> Result<(), String> {
     Ok(())
 }
 
-fn find_project(projects: &[DockerProject], id: &str) -> Result<DockerProject, String> {
+pub fn find_project(projects: &[Project], id: &str) -> Result<Project, String> {
     projects
         .iter()
         .find(|p| p.id == id)
         .cloned()
         .ok_or_else(|| "Project not found".to_string())
+}
+
+/// Resolve environment variables for a project from the global env store.
+fn resolve_project_env(project: &Project) -> Result<Vec<(String, String)>, String> {
+    let binding = &project.env_binding;
+    let profile_id = match &binding.profile_id {
+        Some(id) => id.clone(),
+        None => return Ok(Vec::new()),
+    };
+
+    let all_vars = crate::commands::env_store::load_and_resolve_profile(&profile_id)?;
+
+    let selected: Vec<(String, String)> = all_vars
+        .into_iter()
+        .filter(|var| {
+            if binding.select_all {
+                !binding.excluded_keys.contains(&var.key)
+            } else {
+                binding.selected_keys.contains(&var.key)
+            }
+        })
+        .map(|var| (var.key, var.value))
+        .collect();
+
+    Ok(selected)
+}
+
+pub async fn get_project_status(project: Project) -> ProjectWithStatus {
+    let status = match project.project_type.as_str() {
+        "compose" => get_compose_status(&project).await,
+        "dockerfile" => get_dockerfile_status(&project).await,
+        "devcontainer" => get_devcontainer_status(&project).await,
+        _ => ("unknown".to_string(), vec![]),
+    };
+    project.with_status(status.0, status.1)
 }
 
 fn find_docker_compose_cmd() -> Option<Vec<String>> {
@@ -127,7 +258,7 @@ pub async fn detect_project_type(workspace_path: String) -> Result<ProjectTypeDe
 }
 
 #[tauri::command]
-pub async fn list_docker_projects() -> Result<Vec<DockerProjectWithStatus>, String> {
+pub async fn list_projects() -> Result<Vec<ProjectWithStatus>, String> {
     let projects = load_projects()?;
     let mut result = Vec::new();
 
@@ -150,7 +281,7 @@ pub async fn list_docker_projects() -> Result<Vec<DockerProjectWithStatus>, Stri
     Ok(result)
 }
 
-async fn get_compose_status(project: &DockerProject) -> (String, Vec<String>) {
+async fn get_compose_status(project: &Project) -> (String, Vec<String>) {
     let project_name = project.name.to_lowercase().replace(' ', "-");
     let label_filter = format!("label=com.docker.compose.project={}", project_name);
     match CliExecutor::run(
@@ -164,7 +295,7 @@ async fn get_compose_status(project: &DockerProject) -> (String, Vec<String>) {
     }
 }
 
-async fn get_dockerfile_status(project: &DockerProject) -> (String, Vec<String>) {
+async fn get_dockerfile_status(project: &Project) -> (String, Vec<String>) {
     let container_name = format!("colima-project-{}", project.id.chars().take(8).collect::<String>());
     let filter = format!("name={}", container_name);
     match CliExecutor::run(
@@ -178,7 +309,7 @@ async fn get_dockerfile_status(project: &DockerProject) -> (String, Vec<String>)
     }
 }
 
-async fn get_devcontainer_status(project: &DockerProject) -> (String, Vec<String>) {
+async fn get_devcontainer_status(project: &Project) -> (String, Vec<String>) {
     let label_filter = format!(
         "label=devcontainer.local_folder={}",
         project.workspace_path
@@ -228,13 +359,13 @@ fn parse_container_status(output: &str) -> (String, Vec<String>) {
 }
 
 #[tauri::command]
-pub async fn add_docker_project(
+pub async fn add_project(
     name: String,
     workspace_path: String,
     project_type: String,
     compose_file: Option<String>,
     dockerfile: Option<String>,
-) -> Result<DockerProjectWithStatus, String> {
+) -> Result<ProjectWithStatus, String> {
     let path = std::path::Path::new(&workspace_path);
     if !path.exists() {
         return Err("Path does not exist".to_string());
@@ -245,7 +376,7 @@ pub async fn add_docker_project(
         return Err("This project path is already registered".to_string());
     }
 
-    let project = DockerProject {
+    let project = Project {
         id: uuid::Uuid::new_v4().to_string(),
         name,
         workspace_path,
@@ -261,6 +392,10 @@ pub async fn add_docker_project(
         env_command: None,
         ports: Vec::new(),
         startup_command: None,
+        active_profile: "default".to_string(),
+        profiles: vec!["default".to_string()],
+        infisical_config: None,
+        env_binding: ProjectEnvBinding::default(),
     };
 
     projects.push(project.clone());
@@ -270,7 +405,7 @@ pub async fn add_docker_project(
 }
 
 #[tauri::command]
-pub async fn update_docker_project(project: DockerProject) -> Result<(), String> {
+pub async fn update_project(project: Project) -> Result<(), String> {
     let mut projects = load_projects()?;
     if let Some(existing) = projects.iter_mut().find(|p| p.id == project.id) {
         *existing = project;
@@ -281,7 +416,7 @@ pub async fn update_docker_project(project: DockerProject) -> Result<(), String>
 }
 
 #[tauri::command]
-pub async fn remove_docker_project(id: String, stop_containers: bool) -> Result<(), String> {
+pub async fn remove_project(id: String, stop_containers: bool) -> Result<(), String> {
     let mut projects = load_projects()?;
     let project = find_project(&projects, &id)?;
 
@@ -293,7 +428,7 @@ pub async fn remove_docker_project(id: String, stop_containers: bool) -> Result<
     save_projects(&projects)
 }
 
-async fn stop_project_containers(project: &DockerProject) -> Result<(), String> {
+async fn stop_project_containers(project: &Project) -> Result<(), String> {
     match project.project_type.as_str() {
         "compose" => {
             if let Some(compose_cmd) = find_docker_compose_cmd() {
@@ -337,7 +472,7 @@ async fn stop_project_containers(project: &DockerProject) -> Result<(), String> 
     Ok(())
 }
 
-async fn collect_env_args(project: &DockerProject, app: &AppHandle, event_name: &str) -> Result<Vec<String>, String> {
+async fn collect_env_args(project: &Project, app: &AppHandle, event_name: &str) -> Result<Vec<String>, String> {
     let mut env_args = Vec::new();
 
     // Load dotenv file if specified
@@ -401,33 +536,56 @@ async fn collect_env_args(project: &DockerProject, app: &AppHandle, event_name: 
         }
     }
 
-    // Add manual env vars (these override dotenv and command)
+    // Add manual env vars for active profile (these override dotenv and command)
     for var in &project.env_vars {
-        env_args.push("-e".to_string());
-        env_args.push(format!("{}={}", var.key, var.value));
+        if var.profile == project.active_profile && !var.secret {
+            env_args.push("-e".to_string());
+            env_args.push(format!("{}={}", var.key, var.value));
+        }
     }
 
     Ok(env_args)
 }
 
 #[tauri::command]
-pub async fn docker_project_up(app: AppHandle, id: String) -> Result<(), String> {
+pub async fn project_up(app: AppHandle, id: String) -> Result<(), String> {
     let projects = load_projects()?;
-    let project = find_project(&projects, &id)?;
-
+    let mut project = find_project(&projects, &id)?;
     let event_name = format!("docker-project-log-{}", project.id);
 
+    // Auto-sync Infisical if configured
+    if let Some(ref config) = project.infisical_config {
+        if config.auto_sync {
+            let _ = app.emit(&event_name, "Syncing secrets from Infisical...");
+            match crate::commands::env_secrets::sync_infisical(id.clone()).await {
+                Ok(entries) => {
+                    let _ = app.emit(&event_name, format!("Synced {} secrets from Infisical", entries.len()));
+                    // Reload project after sync updated it
+                    let projects = load_projects()?;
+                    project = find_project(&projects, &id)?;
+                }
+                Err(e) => {
+                    let _ = app.emit(&event_name, format!("Infisical sync warning: {}", e));
+                }
+            }
+        }
+    }
+
+    run_project_up(&app, &project, &event_name).await
+}
+
+async fn run_project_up(app: &AppHandle, project: &Project, event_name: &str) -> Result<(), String> {
     match project.project_type.as_str() {
-        "compose" => compose_up(&app, &project, &event_name).await,
-        "dockerfile" => dockerfile_up(&app, &project, &event_name).await,
-        "devcontainer" => devcontainer_project_up(&app, &project, &event_name).await,
+        "compose" => compose_up(app, project, event_name).await,
+        "dockerfile" => dockerfile_up(app, project, event_name).await,
+        "devcontainer" => devcontainer_project_up(app, project, event_name).await,
         _ => Err(format!("Unknown project type: {}", project.project_type)),
     }
 }
 
 async fn compose_up(
     app: &AppHandle,
-    project: &DockerProject,
+    project: &Project,
     event_name: &str,
 ) -> Result<(), String> {
     let compose_cmd = find_docker_compose_cmd()
@@ -441,44 +599,78 @@ async fn compose_up(
     let mut args: Vec<String> = compose_cmd[1..].to_vec();
     args.extend(["-f".to_string(), compose_file.to_string()]);
 
-    // Add env file if specified
-    if let Some(ref dotenv_path) = project.dotenv_path {
-        let full_path = if std::path::Path::new(dotenv_path).is_absolute() {
-            dotenv_path.clone()
-        } else {
-            format!("{}/{}", project.workspace_path, dotenv_path)
-        };
-        if std::path::Path::new(&full_path).exists() {
-            args.extend(["--env-file".to_string(), full_path]);
+    // Prepare secrets and override file
+    let has_override = match crate::commands::env_secrets::prepare_secrets_for_compose(project) {
+        Ok(Some(_path)) => {
+            args.extend(["-f".to_string(), "docker-compose.override.yml".to_string()]);
+            true
         }
-    }
+        Ok(None) => false,
+        Err(e) => {
+            let _ = app.emit(event_name, format!("Warning: secrets prep failed: {}", e));
+            false
+        }
+    };
 
-    // Collect env vars (from env_command + manual) into a temp env file for compose
-    let collected = collect_env_args(project, app, event_name).await?;
-    let _temp_env_file = if !collected.is_empty() {
-        // collected is ["-e", "KEY=VALUE", "-e", "KEY=VALUE", ...]
-        let mut lines = Vec::new();
-        let mut iter = collected.iter();
-        while let Some(flag) = iter.next() {
-            if flag == "-e" {
-                if let Some(kv) = iter.next() {
-                    lines.push(kv.clone());
-                }
+    // Fallback: use old env file approach if no override was generated
+    let _temp_env_file = if !has_override {
+        if let Some(ref dotenv_path) = project.dotenv_path {
+            let full_path = if std::path::Path::new(dotenv_path).is_absolute() {
+                dotenv_path.clone()
+            } else {
+                format!("{}/{}", project.workspace_path, dotenv_path)
+            };
+            if std::path::Path::new(&full_path).exists() {
+                args.extend(["--env-file".to_string(), full_path]);
             }
         }
-        if !lines.is_empty() {
-            let temp_dir = tempfile::tempdir()
-                .map_err(|e| format!("Failed to create temp dir: {}", e))?;
-            let temp_path = temp_dir.path().join(".env.colima-project");
-            std::fs::write(&temp_path, lines.join("\n"))
-                .map_err(|e| format!("Failed to write temp env file: {}", e))?;
-            args.extend(["--env-file".to_string(), temp_path.to_string_lossy().to_string()]);
-            Some(temp_dir) // keep alive until compose reads it
+
+        let collected = collect_env_args(project, app, event_name).await?;
+        if !collected.is_empty() {
+            let mut lines = Vec::new();
+            let mut iter = collected.iter();
+            while let Some(flag) = iter.next() {
+                if flag == "-e" {
+                    if let Some(kv) = iter.next() {
+                        lines.push(kv.clone());
+                    }
+                }
+            }
+            if !lines.is_empty() {
+                let temp_dir = tempfile::tempdir()
+                    .map_err(|e| format!("Failed to create temp dir: {}", e))?;
+                let temp_path = temp_dir.path().join(".env.colima-project");
+                std::fs::write(&temp_path, lines.join("\n"))
+                    .map_err(|e| format!("Failed to write temp env file: {}", e))?;
+                args.extend(["--env-file".to_string(), temp_path.to_string_lossy().to_string()]);
+                Some(temp_dir) // keep alive until compose reads it
+            } else {
+                None
+            }
         } else {
             None
         }
     } else {
         None
+    };
+
+    // Inject global env store vars via temp env file
+    let _global_env_file = {
+        let global_pairs = resolve_project_env(project)?;
+        if !global_pairs.is_empty() {
+            let lines: Vec<String> = global_pairs.iter()
+                .map(|(k, v)| format!("{}={}", k, v))
+                .collect();
+            let temp_dir = tempfile::tempdir()
+                .map_err(|e| format!("Failed to create temp dir: {}", e))?;
+            let temp_path = temp_dir.path().join(".env.colima-global");
+            std::fs::write(&temp_path, lines.join("\n"))
+                .map_err(|e| format!("Failed to write temp env file: {}", e))?;
+            args.extend(["--env-file".to_string(), temp_path.to_string_lossy().to_string()]);
+            Some(temp_dir)
+        } else {
+            None
+        }
     };
 
     args.push("up".to_string());
@@ -521,7 +713,7 @@ async fn compose_up(
 
 async fn dockerfile_up(
     app: &AppHandle,
-    project: &DockerProject,
+    project: &Project,
     event_name: &str,
 ) -> Result<(), String> {
     let dockerfile = project.dockerfile.as_deref().unwrap_or("Dockerfile");
@@ -583,6 +775,13 @@ async fn dockerfile_up(
     // Add env vars
     run_args.extend(collect_env_args(project, app, event_name).await?);
 
+    // Add global env store vars
+    let global_pairs = resolve_project_env(project)?;
+    for (key, value) in &global_pairs {
+        run_args.push("-e".to_string());
+        run_args.push(format!("{}={}", key, value));
+    }
+
     // Add port mappings
     for port in &project.ports {
         if !port.trim().is_empty() {
@@ -637,7 +836,7 @@ async fn dockerfile_up(
 
 async fn devcontainer_project_up(
     app: &AppHandle,
-    project: &DockerProject,
+    project: &Project,
     event_name: &str,
 ) -> Result<(), String> {
     let cli = find_devcontainer_cli().ok_or(
@@ -646,12 +845,32 @@ async fn devcontainer_project_up(
 
     let docker_host_val = docker_host();
 
-    let mut args = vec!["up", "--workspace-folder"];
-    let ws = project.workspace_path.clone();
-    args.push(&ws);
+    let mut owned_args: Vec<String> = vec![
+        "up".to_string(),
+        "--workspace-folder".to_string(),
+        project.workspace_path.clone(),
+    ];
+
+    // Inject global env store vars first (lower priority)
+    let global_pairs = resolve_project_env(project)?;
+    for (key, value) in &global_pairs {
+        owned_args.push("--remote-env".to_string());
+        owned_args.push(format!("{}={}", key, value));
+    }
+
+    // Inject project-specific env vars last so they override globals for same key
+    let collected = collect_env_args(project, app, event_name).await?;
+    for pair in collected.chunks(2) {
+        if pair.len() == 2 && pair[0] == "-e" {
+            owned_args.push("--remote-env".to_string());
+            owned_args.push(pair[1].clone());
+        }
+    }
+
+    let str_args: Vec<&str> = owned_args.iter().map(|s| s.as_str()).collect();
 
     let mut child = Command::new(&cli)
-        .args(&args)
+        .args(&str_args)
         .env("DOCKER_HOST", &docker_host_val)
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
@@ -672,6 +891,11 @@ async fn devcontainer_project_up(
     }
 
     Ok(())
+}
+
+#[tauri::command]
+pub async fn check_devcontainer_cli() -> Result<bool, String> {
+    Ok(find_devcontainer_cli().is_some())
 }
 
 fn find_devcontainer_cli() -> Option<String> {
@@ -699,7 +923,7 @@ fn find_devcontainer_cli() -> Option<String> {
 }
 
 #[tauri::command]
-pub async fn docker_project_stop(id: String) -> Result<(), String> {
+pub async fn project_stop(id: String) -> Result<(), String> {
     let projects = load_projects()?;
     let project = find_project(&projects, &id)?;
 
@@ -747,7 +971,7 @@ pub async fn docker_project_stop(id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub async fn docker_project_logs(app: AppHandle, id: String) -> Result<(), String> {
+pub async fn project_logs(app: AppHandle, id: String) -> Result<(), String> {
     let projects = load_projects()?;
     let project = find_project(&projects, &id)?;
     let event_name = format!("docker-project-log-{}", project.id);
@@ -837,6 +1061,8 @@ pub async fn load_dotenv_file(file_path: String) -> Result<Vec<EnvVarEntry>, Str
                 key,
                 value,
                 source: "dotenv".to_string(),
+                secret: false,
+                profile: "default".to_string(),
             });
         }
     }
@@ -883,6 +1109,8 @@ pub async fn run_env_command(command: String, workspace_path: String) -> Result<
                 key,
                 value,
                 source: "command".to_string(),
+                secret: false,
+                profile: "default".to_string(),
             });
         }
     }
@@ -930,13 +1158,13 @@ async fn stream_child_output(
 }
 
 #[tauri::command]
-pub async fn docker_project_rebuild(app: AppHandle, id: String) -> Result<(), String> {
+pub async fn project_rebuild(app: AppHandle, id: String) -> Result<(), String> {
     let projects = load_projects()?;
     let project = find_project(&projects, &id)?;
     let event_name = format!("docker-project-log-{}", project.id);
 
     // Stop first
-    let _ = docker_project_stop(id.clone()).await;
+    let _ = project_stop(id.clone()).await;
 
     // Then start
     match project.project_type.as_str() {

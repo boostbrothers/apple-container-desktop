@@ -6,7 +6,6 @@ import {
   ArrowLeft,
   Plus,
   Trash2,
-  FileText,
   Save,
   Loader2,
   Bug,
@@ -14,34 +13,31 @@ import {
   Play,
   Square,
   RotateCw,
-  Terminal,
   Copy,
   SquareTerminal,
+  Settings,
 } from "lucide-react";
-import { open } from "@tauri-apps/plugin-dialog";
 import { listen } from "@tauri-apps/api/event";
-import type { DockerProject, EnvVarEntry } from "../../types";
+import type { Project } from "../../types";
 import {
-  useUpdateDockerProject,
-  useDockerProjectAction,
-  useLoadDotenvFile,
-  useRunEnvCommand,
+  useUpdateProject,
+  useProjectAction,
   useOpenTerminalExec,
-} from "../../hooks/useDockerProjects";
+} from "../../hooks/useProjects";
+import { DevcontainerConfigEditor } from "../devcontainer-config/DevcontainerConfigEditor";
+import { EnvironmentTab } from "../env/EnvironmentTab";
+import { ProjectEnvSelector } from "../environment/ProjectEnvSelector";
 
 interface ProjectDetailProps {
-  project: DockerProject;
+  project: Project;
   onBack: () => void;
 }
 
 export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
-  const updateProject = useUpdateDockerProject();
-  const action = useDockerProjectAction();
-  const loadDotenv = useLoadDotenvFile();
-  const runEnvCmd = useRunEnvCommand();
+  const updateProject = useUpdateProject();
+  const action = useProjectAction();
   const openTerminal = useOpenTerminalExec();
 
-  const [envVars, setEnvVars] = useState<EnvVarEntry[]>(project.env_vars);
   const [dotenvPath, setDotenvPath] = useState(project.dotenv_path || "");
   const [envCommand, setEnvCommand] = useState(project.env_command || "");
   const [watchMode, setWatchMode] = useState(project.watch_mode);
@@ -49,17 +45,14 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
   const [debugPort, setDebugPort] = useState(project.debug_port);
   const [ports, setPorts] = useState<string[]>(project.ports.length > 0 ? project.ports : [""]);
   const [startupCommand, setStartupCommand] = useState(project.startup_command || "");
-  const [newKey, setNewKey] = useState("");
-  const [newValue, setNewValue] = useState("");
   const [hasChanges, setHasChanges] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
   const [isRunning, setIsRunning] = useState(false);
-  const [cmdError, setCmdError] = useState<string | null>(null);
+  const [showConfig, setShowConfig] = useState(false);
 
   // Track changes
   useEffect(() => {
     const changed =
-      JSON.stringify(envVars) !== JSON.stringify(project.env_vars) ||
       dotenvPath !== (project.dotenv_path || "") ||
       envCommand !== (project.env_command || "") ||
       watchMode !== project.watch_mode ||
@@ -68,7 +61,7 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
       JSON.stringify(ports.filter(Boolean)) !== JSON.stringify(project.ports) ||
       startupCommand !== (project.startup_command || "");
     setHasChanges(changed);
-  }, [envVars, dotenvPath, envCommand, watchMode, remoteDebug, debugPort, ports, startupCommand, project]);
+  }, [dotenvPath, envCommand, watchMode, remoteDebug, debugPort, ports, startupCommand, project]);
 
   // Listen for logs
   useEffect(() => {
@@ -87,85 +80,41 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
     };
   }, [project.id]);
 
+  const buildSaveData = () => ({
+    id: project.id,
+    name: project.name,
+    workspace_path: project.workspace_path,
+    project_type: project.project_type,
+    env_vars: project.env_vars,
+    dotenv_path: dotenvPath || null,
+    env_command: envCommand || null,
+    watch_mode: watchMode,
+    remote_debug: remoteDebug,
+    debug_port: debugPort,
+    compose_file: project.compose_file,
+    dockerfile: project.dockerfile,
+    service_name: project.service_name,
+    ports: ports.filter(Boolean),
+    startup_command: startupCommand || null,
+    active_profile: project.active_profile,
+    profiles: project.profiles,
+    infisical_config: project.infisical_config,
+    env_binding: project.env_binding,
+  });
+
   const handleSave = () => {
-    updateProject.mutate({
-      id: project.id,
-      name: project.name,
-      workspace_path: project.workspace_path,
-      project_type: project.project_type,
-      env_vars: envVars.filter((v) => v.source !== "command"),
-      dotenv_path: dotenvPath || null,
-      env_command: envCommand || null,
-      watch_mode: watchMode,
-      remote_debug: remoteDebug,
-      debug_port: debugPort,
-      compose_file: project.compose_file,
-      dockerfile: project.dockerfile,
-      service_name: project.service_name,
-      ports: ports.filter(Boolean),
-      startup_command: startupCommand || null,
-    });
+    updateProject.mutate(buildSaveData());
   };
 
-  const handleAddEnvVar = () => {
-    if (!newKey.trim()) return;
-    setEnvVars([
-      ...envVars,
-      { key: newKey.trim(), value: newValue, source: "manual" as const },
-    ]);
-    setNewKey("");
-    setNewValue("");
-  };
-
-  const handleRemoveEnvVar = (index: number) => {
-    setEnvVars(envVars.filter((_, i) => i !== index));
-  };
-
-  const handleLoadDotenv = async () => {
-    const selected = await open({
-      multiple: false,
-      filters: [{ name: "Env Files", extensions: ["env", "*"] }],
-      defaultPath: project.workspace_path,
-    });
-    if (!selected) return;
-
-    const path = typeof selected === "string" ? selected : selected[0];
-    if (!path) return;
-
-    // Set relative path if inside workspace
-    if (path.startsWith(project.workspace_path)) {
-      setDotenvPath(path.slice(project.workspace_path.length + 1));
-    } else {
-      setDotenvPath(path);
-    }
-
-    loadDotenv.mutate(path, {
-      onSuccess: (entries) => {
-        // Merge with existing manual entries, dotenv entries replace
-        const manualVars = envVars.filter((v) => v.source === "manual");
-        setEnvVars([...entries, ...manualVars]);
-      },
-    });
-  };
-
-  const handleRunEnvCommand = () => {
-    if (!envCommand.trim()) return;
-    setCmdError(null);
-    runEnvCmd.mutate(
-      { command: envCommand.trim(), workspacePath: project.workspace_path },
-      {
-        onSuccess: (entries) => {
-          const manualVars = envVars.filter((v) => v.source === "manual");
-          setEnvVars([...entries, ...manualVars]);
-        },
-        onError: (err) => {
-          setCmdError(err instanceof Error ? err.message : String(err));
-        },
+  const handleAction = async (type: "up" | "stop" | "rebuild") => {
+    // Auto-save pending changes before starting/rebuilding
+    if ((type === "up" || type === "rebuild") && hasChanges) {
+      try {
+        await updateProject.mutateAsync(buildSaveData());
+      } catch {
+        return;
       }
-    );
-  };
-
-  const handleAction = (type: "up" | "stop" | "rebuild") => {
+    }
     if (type === "up" || type === "rebuild") {
       setIsRunning(true);
       setLogs([]);
@@ -183,6 +132,24 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
   }[project.project_type] ?? project.project_type;
 
   const disabled = action.isPending || isRunning;
+
+  if (showConfig && project.project_type === "devcontainer") {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => setShowConfig(false)} className="h-8 w-8">
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <h1 className="text-lg font-semibold">DevContainer Config</h1>
+        </div>
+        <DevcontainerConfigEditor
+          workspacePath={project.workspace_path}
+          projectName={project.name}
+          onClose={() => setShowConfig(false)}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -211,6 +178,12 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
           </span>
         </div>
         <div className="flex gap-1">
+          {project.project_type === "devcontainer" && (
+            <Button size="sm" variant="outline" onClick={() => setShowConfig(true)}>
+              <Settings className="h-3.5 w-3.5 mr-1" />
+              Config
+            </Button>
+          )}
           {project.status === "running" ? (
             <>
               <Button size="sm" variant="outline" onClick={() => handleAction("rebuild")} disabled={disabled}>
@@ -341,169 +314,44 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
             ))}
             <p className="text-[10px] text-muted-foreground">
               host:container format (e.g. 3000:3000, 5432:5432)
-              {project.project_type === "compose" && " — Compose projects use ports from YAML."}
+              {project.project_type === "compose" && " -- Compose projects use ports from YAML."}
             </p>
           </div>
 
           <div className="border-t border-[var(--glass-border)]" />
 
-          {/* Startup Command */}
-          <div className="space-y-2">
-            <span className="text-sm">Startup Command</span>
-            <Input
-              placeholder="e.g. npm run dev, python manage.py runserver"
-              value={startupCommand}
-              onChange={(e) => setStartupCommand(e.target.value)}
-              className="h-7 text-xs font-mono"
-            />
-            <p className="text-[10px] text-muted-foreground">
-              Override the default container CMD.
-              {project.project_type === "compose" && " For Compose, set 'command' in your YAML instead."}
-            </p>
-          </div>
+          {/* Startup Command -- show only for dockerfile type */}
+          {project.project_type === "dockerfile" && (
+            <div className="space-y-2">
+              <span className="text-sm">Startup Command</span>
+              <Input
+                placeholder="e.g. npm run dev, python manage.py runserver"
+                value={startupCommand}
+                onChange={(e) => setStartupCommand(e.target.value)}
+                className="h-7 text-xs font-mono"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                Override the default container CMD.
+              </p>
+            </div>
+          )}
+
+          {/* Compose-specific notes */}
+          {project.project_type === "compose" && (
+            <div className="rounded-md bg-muted/20 px-3 py-2">
+              <p className="text-[10px] text-muted-foreground">
+                For Compose projects, configure commands and services in your docker-compose.yml.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Environment Variables */}
         <div className="glass-panel rounded-lg p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold">Environment Variables</h3>
-            <div className="flex gap-1">
-              <Button variant="outline" size="sm" onClick={handleLoadDotenv}>
-                <FileText className="h-3.5 w-3.5 mr-1" />
-                .env File
-              </Button>
-            </div>
-          </div>
-
-          {/* Command to fetch env vars */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Terminal className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-              <Input
-                placeholder="e.g. infisical export, doppler secrets download --no-file --format env"
-                value={envCommand}
-                onChange={(e) => setEnvCommand(e.target.value)}
-                className="h-7 text-xs font-mono flex-1"
-                onKeyDown={(e) => e.key === "Enter" && handleRunEnvCommand()}
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRunEnvCommand}
-                disabled={runEnvCmd.isPending || !envCommand.trim()}
-                className="shrink-0"
-              >
-                {runEnvCmd.isPending ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Play className="h-3.5 w-3.5 mr-1" />
-                )}
-                {runEnvCmd.isPending ? "Running..." : "Run"}
-              </Button>
-            </div>
-            <p className="text-[10px] text-muted-foreground pl-5.5">
-              Run a command that outputs KEY=VALUE lines (infisical, doppler, vault, aws ssm, etc.)
-            </p>
-            {cmdError && (
-              <p className="text-[11px] text-destructive pl-5.5">{cmdError}</p>
-            )}
-          </div>
-
-          {dotenvPath && (
-            <div className="rounded-md bg-muted/30 px-3 py-2 flex items-center justify-between">
-              <div>
-                <div className="text-[10px] uppercase text-muted-foreground">
-                  Dotenv File
-                </div>
-                <div className="text-xs">{dotenvPath}</div>
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6"
-                onClick={() => {
-                  setDotenvPath("");
-                  setEnvVars(envVars.filter((v) => v.source !== "dotenv"));
-                }}
-              >
-                <Trash2 className="h-3 w-3" />
-              </Button>
-            </div>
-          )}
-
-          {/* Env var list */}
-          {envVars.length > 0 && (
-            <div className="space-y-1 max-h-48 overflow-y-auto">
-              {envVars.map((v, i) => (
-                <div
-                  key={i}
-                  className={`flex items-center gap-2 rounded-md px-2 py-1 ${
-                    v.source === "command"
-                      ? "bg-orange-500/5 border border-orange-500/10"
-                      : "bg-muted/20"
-                  }`}
-                >
-                  <Badge
-                    variant="outline"
-                    className={`text-[9px] px-1 shrink-0 ${
-                      v.source === "command"
-                        ? "bg-orange-500/10 text-orange-400 border-orange-500/20"
-                        : ""
-                    }`}
-                  >
-                    {v.source}
-                  </Badge>
-                  <code className="text-[11px] font-mono truncate flex-1">
-                    {v.key}
-                  </code>
-                  <code className="text-[11px] font-mono truncate flex-1 text-muted-foreground">
-                    {v.source === "command" ? "••••••••" : v.value}
-                  </code>
-                  {v.source !== "command" && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-5 w-5 shrink-0"
-                      onClick={() => handleRemoveEnvVar(i)}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-          {envVars.some((v) => v.source === "command") && (
-            <p className="text-[10px] text-orange-400/80">
-              Command-sourced vars are previews only. Fresh values are fetched on each start.
-            </p>
-          )}
-
-          {/* Add new env var */}
-          <div className="flex items-center gap-2">
-            <Input
-              placeholder="KEY"
-              value={newKey}
-              onChange={(e) => setNewKey(e.target.value)}
-              className="h-7 text-xs font-mono flex-1"
-              onKeyDown={(e) => e.key === "Enter" && handleAddEnvVar()}
-            />
-            <Input
-              placeholder="VALUE"
-              value={newValue}
-              onChange={(e) => setNewValue(e.target.value)}
-              className="h-7 text-xs font-mono flex-1"
-              onKeyDown={(e) => e.key === "Enter" && handleAddEnvVar()}
-            />
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-7 w-7 shrink-0"
-              onClick={handleAddEnvVar}
-              disabled={!newKey.trim()}
-            >
-              <Plus className="h-3.5 w-3.5" />
-            </Button>
+          <h3 className="text-sm font-semibold">Environment Variables</h3>
+          <ProjectEnvSelector project={project} />
+          <div className="border-t pt-3 mt-3">
+            <EnvironmentTab project={project} />
           </div>
         </div>
 

@@ -10,24 +10,27 @@ import {
   Loader2,
   FolderOpen,
   AlertTriangle,
+  Lock,
 } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
-import type { DockerProject } from "../../types";
+import type { Project } from "../../types";
 import {
-  useDockerProjectAction,
-  useRemoveDockerProject,
-} from "../../hooks/useDockerProjects";
+  useProjectAction,
+  useRemoveProject,
+} from "../../hooks/useProjects";
+import { useSwitchProfile } from "../../hooks/useEnvSecrets";
 
 interface ProjectCardProps {
-  project: DockerProject;
+  project: Project;
   onSelect: () => void;
 }
 
 export function ProjectCard({ project, onSelect }: ProjectCardProps) {
-  const action = useDockerProjectAction();
-  const remove = useRemoveDockerProject();
+  const action = useProjectAction();
+  const remove = useRemoveProject();
   const [isRunning, setIsRunning] = useState(false);
   const [lastLog, setLastLog] = useState<string | null>(null);
+  const switchProfile = useSwitchProfile();
 
   useEffect(() => {
     if (!isRunning) return;
@@ -138,6 +141,29 @@ export function ProjectCard({ project, onSelect }: ProjectCardProps) {
                 className="text-[10px] px-1.5 bg-purple-500/10 text-purple-400 border-purple-500/20"
               >
                 Debug:{project.debug_port}
+              </Badge>
+            )}
+            {project.profiles.length > 1 && (
+              <Badge
+                variant="outline"
+                className="text-[10px] px-1.5 bg-cyan-500/10 text-cyan-400 border-cyan-500/20 cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const idx = project.profiles.indexOf(project.active_profile);
+                  const next = project.profiles[(idx + 1) % project.profiles.length];
+                  switchProfile.mutate({ projectId: project.id, profileName: next });
+                }}
+              >
+                {project.active_profile}
+              </Badge>
+            )}
+            {project.env_vars.filter((v) => v.secret && v.profile === project.active_profile).length > 0 && (
+              <Badge
+                variant="outline"
+                className="text-[10px] px-1.5 bg-amber-500/10 text-amber-400 border-amber-500/20"
+              >
+                <Lock className="h-2.5 w-2.5 mr-0.5" />
+                {project.env_vars.filter((v) => v.secret && v.profile === project.active_profile).length}
               </Badge>
             )}
             {project.status === "path_missing" && (

@@ -1,40 +1,32 @@
 import { useState } from "react";
-import { useDockerProjects } from "../../hooks/useDockerProjects";
+import { useProjects } from "../../hooks/useProjects";
 import { ProjectCard } from "./ProjectCard";
 import { AddProjectWizard } from "./AddProjectWizard";
-import { ProjectDetail } from "./ProjectDetail";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
+import type { Project } from "../../types";
 
-export function ProjectList() {
-  const { data: projects, isLoading, error } = useDockerProjects();
-  const [showAdd, setShowAdd] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+interface ProjectsTabProps {
+  onSelectProject: (project: Project) => void;
+}
 
-  const selectedProject = projects?.find((p) => p.id === selectedId);
-
-  if (selectedProject) {
-    return (
-      <ProjectDetail
-        project={selectedProject}
-        onBack={() => setSelectedId(null)}
-      />
-    );
-  }
+export function ProjectsTab({ onSelectProject }: ProjectsTabProps) {
+  const { data: projects, isLoading, error } = useProjects();
+  const [showWizard, setShowWizard] = useState(false);
 
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-lg font-semibold">Projects</h1>
-        <Button size="sm" onClick={() => setShowAdd(true)}>
+        <Button size="sm" onClick={() => setShowWizard(true)}>
           <Plus className="h-4 w-4 mr-1" />
           Add Project
         </Button>
       </div>
 
-      {showAdd && (
+      {showWizard && (
         <div className="mb-4">
-          <AddProjectWizard onClose={() => setShowAdd(false)} />
+          <AddProjectWizard onClose={() => setShowWizard(false)} />
         </div>
       )}
 
@@ -52,10 +44,10 @@ export function ProjectList() {
           <ProjectCard
             key={project.id}
             project={project}
-            onSelect={() => setSelectedId(project.id)}
+            onSelect={() => onSelectProject(project)}
           />
         ))}
-        {projects && projects.length === 0 && !isLoading && !showAdd && (
+        {projects && projects.length === 0 && !isLoading && !showWizard && (
           <div className="rounded-lg glass-panel p-8 text-center">
             <p className="text-sm text-muted-foreground mb-2">
               No projects registered yet.

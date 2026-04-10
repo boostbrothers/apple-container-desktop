@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { SquareTerminal } from "lucide-react";
 import type { Container } from "../../types";
 import { useContainerAction } from "../../hooks/useContainers";
-import { useOpenTerminalExec } from "../../hooks/useDockerProjects";
+import { useOpenTerminalExec } from "../../hooks/useProjects";
 
 interface ContainerRowProps {
   container: Container;

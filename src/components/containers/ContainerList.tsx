@@ -1,16 +1,18 @@
 import { useState, useMemo } from "react";
 import { useContainers, usePruneContainers } from "../../hooks/useContainers";
+import { useProjects } from "../../hooks/useProjects";
 import { ContainerRow } from "./ContainerRow";
 import { ComposeGroup } from "./ComposeGroup";
 import { ContainerLogs } from "./ContainerLogs";
 import { ContainerRun } from "./ContainerRun";
 import { ContainerDetail } from "./ContainerDetail";
-import { DevContainerTab } from "./DevContainerTab";
+import { ProjectsTab } from "./ProjectsTab";
+import { ProjectDetail } from "./ProjectDetail";
 import { Button } from "@/components/ui/button";
-import type { Container } from "../../types";
+import type { Container, Project } from "../../types";
 
 type Filter = "all" | "running" | "stopped";
-type Tab = "containers" | "devcontainers";
+type Tab = "running" | "projects";
 
 interface ComposeGroupData {
   project: string;
@@ -21,9 +23,15 @@ export function ContainerList() {
   const { data: containers, isLoading, error } = useContainers();
   const prune = usePruneContainers();
   const [filter, setFilter] = useState<Filter>("all");
-  const [tab, setTab] = useState<Tab>("containers");
+  const [tab, setTab] = useState<Tab>("running");
   const [logsContainerId, setLogsContainerId] = useState<string | null>(null);
   const [inspectId, setInspectId] = useState<string | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const { data: allProjects } = useProjects();
+  const selectedProject = useMemo(
+    () => allProjects?.find((p) => p.id === selectedProjectId) ?? null,
+    [allProjects, selectedProjectId]
+  );
 
   const stoppedCount = useMemo(() =>
     containers?.filter((c) => c.state !== "running").length ?? 0,
@@ -59,6 +67,10 @@ export function ContainerList() {
     return { composeGroups, standalone };
   }, [filtered]);
 
+  if (selectedProject) {
+    return <ProjectDetail project={selectedProject} onBack={() => setSelectedProjectId(null)} />;
+  }
+
   if (inspectId) {
     return <ContainerDetail containerId={inspectId} onBack={() => setInspectId(null)} />;
   }
@@ -73,28 +85,28 @@ export function ContainerList() {
       <div className="flex border-b border-[var(--glass-border)] mb-4">
         <button
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            tab === "containers"
+            tab === "running"
               ? "border-primary text-foreground"
               : "border-transparent text-muted-foreground hover:text-foreground"
           }`}
-          onClick={() => setTab("containers")}
+          onClick={() => setTab("running")}
         >
-          Containers
+          Running
         </button>
         <button
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            tab === "devcontainers"
+            tab === "projects"
               ? "border-primary text-foreground"
               : "border-transparent text-muted-foreground hover:text-foreground"
           }`}
-          onClick={() => setTab("devcontainers")}
+          onClick={() => setTab("projects")}
         >
-          Dev Containers
+          Projects
         </button>
       </div>
 
-      {/* Containers Tab */}
-      {tab === "containers" && (
+      {/* Running Tab */}
+      {tab === "running" && (
         <>
           <div className="mb-4 flex items-center justify-between">
             <h1 className="text-lg font-semibold">Containers</h1>
@@ -138,8 +150,8 @@ export function ContainerList() {
         </>
       )}
 
-      {/* Dev Containers Tab */}
-      {tab === "devcontainers" && <DevContainerTab />}
+      {/* Projects Tab */}
+      {tab === "projects" && <ProjectsTab onSelectProject={(p) => setSelectedProjectId(p.id)} />}
     </div>
   );
 }

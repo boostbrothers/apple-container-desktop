@@ -1,12 +1,20 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/tauri";
-import type { DockerProject, EnvVarEntry } from "../types";
+import type { Project } from "../types";
 
-export function useDockerProjects() {
+export function useProjects() {
   return useQuery({
-    queryKey: ["docker-projects"],
-    queryFn: api.listDockerProjects,
+    queryKey: ["projects"],
+    queryFn: api.listProjects,
     refetchInterval: 3000,
+  });
+}
+
+export function useDevcontainerCliCheck() {
+  return useQuery({
+    queryKey: ["devcontainer-cli-check"],
+    queryFn: api.checkDevcontainerCli,
+    staleTime: 60_000,
   });
 }
 
@@ -18,7 +26,7 @@ export function useDetectProjectType(workspacePath: string) {
   });
 }
 
-export function useAddDockerProject() {
+export function useAddProject() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (params: {
@@ -27,57 +35,58 @@ export function useAddDockerProject() {
       projectType: string;
       composeFile?: string;
       dockerfile?: string;
-    }) => api.addDockerProject(params),
+    }) => api.addProject(params),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["docker-projects"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
     },
   });
 }
 
-export function useUpdateDockerProject() {
+export function useUpdateProject() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (project: Omit<DockerProject, "status" | "container_ids">) =>
-      api.updateDockerProject(project),
+    mutationFn: (project: Omit<Project, "status" | "container_ids">) =>
+      api.updateProject(project),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["docker-projects"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
     },
   });
 }
 
-export function useRemoveDockerProject() {
+export function useRemoveProject() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, stopContainers }: { id: string; stopContainers: boolean }) =>
-      api.removeDockerProject(id, stopContainers),
+      api.removeProject(id, stopContainers),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["docker-projects"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
     },
   });
 }
 
-export function useDockerProjectAction() {
+export function useProjectAction() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, action }: { id: string; action: "up" | "stop" | "rebuild" }) => {
       switch (action) {
         case "up":
-          return api.dockerProjectUp(id);
+          return api.projectUp(id);
         case "stop":
-          return api.dockerProjectStop(id);
+          return api.projectStop(id);
         case "rebuild":
-          return api.dockerProjectRebuild(id);
+          return api.projectRebuild(id);
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["docker-projects"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      queryClient.invalidateQueries({ queryKey: ["containers"] });
     },
   });
 }
 
-export function useDockerProjectLogs() {
+export function useProjectLogs() {
   return useMutation({
-    mutationFn: (id: string) => api.dockerProjectLogs(id),
+    mutationFn: (id: string) => api.projectLogs(id),
   });
 }
 

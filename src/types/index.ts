@@ -153,21 +153,6 @@ export interface VersionCheck {
   update_available: boolean;
 }
 
-export interface DevContainerProject {
-  id: string;
-  workspace_path: string;
-  name: string;
-  status: "running" | "stopped" | "not_built" | "building" | "path_missing";
-  container_id: string | null;
-}
-
-export interface DevContainerConfig {
-  image: string;
-  features: string[];
-  forward_ports: number[];
-  remote_user: string;
-}
-
 export interface ColimaInstallCheck {
   installed: boolean;
   path: string | null;
@@ -178,12 +163,48 @@ export interface ColimaInstallCheck {
 export interface EnvVarEntry {
   key: string;
   value: string;
-  source: "manual" | "dotenv" | "command" | "api";
+  source: "manual" | "dotenv" | "command" | "api" | "infisical";
+  secret: boolean;
+  profile: string;
+}
+
+export interface InfisicalConfig {
+  project_id: string;
+  environment: string;
+  secret_path: string;
+  auto_sync: boolean;
+  profile_mapping: Record<string, string>;
+  token: string | null;
+}
+
+// ─── Global Environment Store ────────────────────────────────────────────────
+
+export interface GlobalEnvVar {
+  key: string;
+  value: string;
+  source: "manual" | "dotenv" | "infisical";
+  secret: boolean;
+  source_file: string | null;
+  enabled: boolean;
+}
+
+export interface EnvProfile {
+  id: string;
+  name: string;
+  env_vars: GlobalEnvVar[];
+  infisical_config: InfisicalConfig | null;
+}
+
+export interface ProjectEnvBinding {
+  profile_id: string | null;
+  select_all: boolean;
+  selected_keys: string[];
+  excluded_keys: string[];
 }
 
 export type ProjectType = "dockerfile" | "compose" | "devcontainer";
 
-export interface DockerProject {
+export interface Project {
   id: string;
   name: string;
   workspace_path: string;
@@ -199,6 +220,10 @@ export interface DockerProject {
   env_command: string | null;
   ports: string[];
   startup_command: string | null;
+  active_profile: string;
+  profiles: string[];
+  infisical_config: InfisicalConfig | null;
+  env_binding: ProjectEnvBinding;
   status: "running" | "stopped" | "not_created" | "path_missing" | "unknown";
   container_ids: string[];
 }
@@ -216,3 +241,18 @@ export interface ProjectTypeDetection {
   dockerfiles: string[];
   dotenv_files: string[];
 }
+
+// DevContainer Config Editor types
+
+export interface DevcontainerConfigResponse {
+  config: Record<string, unknown>;
+  exists: boolean;
+}
+
+export interface DevcontainerValidationError {
+  path: string;
+  message: string;
+}
+
+export type ConfigTab = "general" | "features" | "ports-env" | "lifecycle" | "json";
+export type DevcontainerSourceType = "image" | "dockerfile";

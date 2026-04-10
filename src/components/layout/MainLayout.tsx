@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Sidebar } from "./Sidebar";
 import { ContainerList } from "../containers/ContainerList";
-import { ProjectList } from "../projects/ProjectList";
 import { ImageList } from "../images/ImageList";
 import { VolumeList } from "../volumes/VolumeList";
 import { NetworkList } from "../networks/NetworkList";
@@ -12,8 +11,9 @@ import { DockerSettingsPanel } from "../settings/DockerSettingsPanel";
 import { UpdatePanel } from "../settings/UpdatePanel";
 import { AppearanceSettings } from "../settings/AppearanceSettings";
 import { TerminalSettings } from "../settings/TerminalSettings";
+import { EnvironmentPage } from "../environment/EnvironmentPage";
 
-type Page = "containers" | "projects" | "images" | "volumes" | "networks" | "settings";
+type Page = "containers" | "images" | "volumes" | "networks" | "environment" | "settings";
 type SettingsTab = "vm" | "mounts" | "network" | "docker" | "terminal" | "update" | "appearance";
 
 export function MainLayout() {
@@ -25,13 +25,13 @@ export function MainLayout() {
       <Sidebar activePage={activePage} onPageChange={setActivePage} />
       <main className="flex-1 overflow-auto p-4">
         {activePage === "containers" && <ContainerList />}
-        {activePage === "projects" && <ProjectList />}
         {activePage === "images" && <ImageList />}
         {activePage === "volumes" && <VolumeList />}
         {activePage === "networks" && <NetworkList />}
+        {activePage === "environment" && <EnvironmentPage />}
         {activePage === "settings" && (
           <div className="space-y-4">
-            <div className="mx-auto max-w-lg flex gap-1 rounded-xl glass-panel p-1">
+            <div className="mx-auto max-w-2xl flex gap-1 rounded-xl glass-panel p-1">
               <button
                 onClick={() => setSettingsTab("vm")}
                 className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium transition-all ${

@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Play, Square, RotateCw } from "lucide-react";
 import { useColimaStatus, useColimaAction } from "../../hooks/useColimaStatus";
 
-type Page = "containers" | "projects" | "images" | "volumes" | "networks" | "settings";
+type Page = "containers" | "images" | "volumes" | "networks" | "environment" | "settings";
 
 interface SidebarProps {
   activePage: Page;
@@ -74,15 +74,6 @@ export function Sidebar({ activePage, onPageChange }: SidebarProps) {
           Containers
         </button>
         <button
-          onClick={() => onPageChange("projects")}
-          data-active={activePage === "projects"}
-          className={cn("glass-nav-item rounded-lg px-3 py-2 text-left text-sm",
-            activePage === "projects" ? "text-accent-foreground font-medium" : "text-muted-foreground hover:text-foreground"
-          )}
-        >
-          Projects
-        </button>
-        <button
           onClick={() => onPageChange("images")}
           data-active={activePage === "images"}
           className={cn("glass-nav-item rounded-lg px-3 py-2 text-left text-sm",
@@ -108,6 +99,15 @@ export function Sidebar({ activePage, onPageChange }: SidebarProps) {
           )}
         >
           Networks
+        </button>
+        <button
+          onClick={() => onPageChange("environment")}
+          data-active={activePage === "environment"}
+          className={cn("glass-nav-item rounded-lg px-3 py-2 text-left text-sm",
+            activePage === "environment" ? "text-accent-foreground font-medium" : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          Environment
         </button>
         <button
           onClick={() => onPageChange("settings")}

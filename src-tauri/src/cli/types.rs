@@ -352,46 +352,100 @@ pub struct ContainerStats {
     pub pids: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct DevContainerProject {
-    pub id: String,
-    pub workspace_path: String,
-    pub name: String,
-}
-
-#[derive(Debug, Serialize, Clone)]
-pub struct DevContainerProjectWithStatus {
-    pub id: String,
-    pub workspace_path: String,
-    pub name: String,
-    pub status: String,
-    pub container_id: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct DevContainerProjectsConfig {
-    pub projects: Vec<DevContainerProject>,
-}
-
-#[derive(Debug, Serialize, Clone)]
-pub struct DevContainerReadConfig {
-    pub image: String,
-    pub features: Vec<String>,
-    pub forward_ports: Vec<u16>,
-    pub remote_user: String,
-}
-
-// Docker Project Execution types
+// Project Execution types
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct EnvVarEntry {
     pub key: String,
     pub value: String,
-    pub source: String, // "manual" | "dotenv" | "api"
+    pub source: String, // "manual" | "dotenv" | "command" | "api" | "infisical"
+    #[serde(default)]
+    pub secret: bool,
+    #[serde(default = "default_profile")]
+    pub profile: String,
+}
+
+fn default_profile() -> String {
+    "default".to_string()
+}
+
+// ─── Global Environment Store ────────────────────────────────────────────────
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct GlobalEnvVar {
+    pub key: String,
+    pub value: String,
+    pub source: String, // "manual" | "dotenv" | "infisical"
+    pub secret: bool,
+    #[serde(default)]
+    pub source_file: Option<String>, // path for dotenv, project_id for infisical
+    #[serde(default = "default_true")]
+    pub enabled: bool, // active when there are key conflicts across sources
+}
+
+fn default_true() -> bool {
+    true
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct DockerProject {
+pub struct EnvProfile {
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub env_vars: Vec<GlobalEnvVar>,
+    #[serde(default)]
+    pub infisical_config: Option<InfisicalConfig>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct EnvStoreConfig {
+    #[serde(default)]
+    pub profiles: Vec<EnvProfile>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ProjectEnvBinding {
+    #[serde(default)]
+    pub profile_id: Option<String>,
+    #[serde(default = "default_true")]
+    pub select_all: bool,
+    #[serde(default)]
+    pub selected_keys: Vec<String>,   // used when select_all = false
+    #[serde(default)]
+    pub excluded_keys: Vec<String>,   // used when select_all = true
+}
+
+impl Default for ProjectEnvBinding {
+    fn default() -> Self {
+        ProjectEnvBinding {
+            profile_id: None,
+            select_all: true,
+            selected_keys: Vec::new(),
+            excluded_keys: Vec::new(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct InfisicalConfig {
+    pub project_id: String,
+    pub environment: String,
+    #[serde(default = "default_secret_path")]
+    pub secret_path: String,
+    #[serde(default)]
+    pub auto_sync: bool,
+    #[serde(default)]
+    pub profile_mapping: std::collections::HashMap<String, String>,
+    #[serde(default)]
+    pub token: Option<String>,
+}
+
+fn default_secret_path() -> String {
+    "/".to_string()
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Project {
     pub id: String,
     pub name: String,
     pub workspace_path: String,
@@ -418,14 +472,26 @@ pub struct DockerProject {
     pub ports: Vec<String>,
     #[serde(default)]
     pub startup_command: Option<String>,
+    #[serde(default = "default_profile")]
+    pub active_profile: String,
+    #[serde(default = "default_profiles")]
+    pub profiles: Vec<String>,
+    #[serde(default)]
+    pub infisical_config: Option<InfisicalConfig>,
+    #[serde(default)]
+    pub env_binding: ProjectEnvBinding,
 }
 
 fn default_debug_port() -> u16 {
     9229
 }
 
+fn default_profiles() -> Vec<String> {
+    vec!["default".to_string()]
+}
+
 #[derive(Debug, Serialize, Clone)]
-pub struct DockerProjectWithStatus {
+pub struct ProjectWithStatus {
     pub id: String,
     pub name: String,
     pub workspace_path: String,
@@ -441,13 +507,17 @@ pub struct DockerProjectWithStatus {
     pub env_command: Option<String>,
     pub ports: Vec<String>,
     pub startup_command: Option<String>,
+    pub active_profile: String,
+    pub profiles: Vec<String>,
+    pub infisical_config: Option<InfisicalConfig>,
+    pub env_binding: ProjectEnvBinding,
     pub status: String,
     pub container_ids: Vec<String>,
 }
 
-impl DockerProject {
-    pub fn with_status(self, status: String, container_ids: Vec<String>) -> DockerProjectWithStatus {
-        DockerProjectWithStatus {
+impl Project {
+    pub fn with_status(self, status: String, container_ids: Vec<String>) -> ProjectWithStatus {
+        ProjectWithStatus {
             id: self.id,
             name: self.name,
             workspace_path: self.workspace_path,
@@ -463,6 +533,10 @@ impl DockerProject {
             env_command: self.env_command,
             ports: self.ports,
             startup_command: self.startup_command,
+            active_profile: self.active_profile,
+            profiles: self.profiles,
+            infisical_config: self.infisical_config,
+            env_binding: self.env_binding,
             status,
             container_ids,
         }
@@ -470,8 +544,8 @@ impl DockerProject {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct DockerProjectsConfig {
-    pub projects: Vec<DockerProject>,
+pub struct ProjectsConfig {
+    pub projects: Vec<Project>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

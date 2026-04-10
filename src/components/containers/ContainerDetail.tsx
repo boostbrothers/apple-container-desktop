@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, SquareTerminal, Copy } from "lucide-react";
 import { useContainerDetail, useContainerStats } from "../../hooks/useContainerDetail";
-import { useOpenTerminalExec } from "../../hooks/useDockerProjects";
+import { useOpenTerminalExec } from "../../hooks/useProjects";
 
 interface ContainerDetailProps {
   containerId: string;
