@@ -1,6 +1,9 @@
 import { useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { setLiquidGlassEffect } from "tauri-plugin-liquid-glass-api";
+import {
+  setLiquidGlassEffect,
+  isGlassSupported,
+} from "tauri-plugin-liquid-glass-api";
 import { MainLayout } from "./components/layout/MainLayout";
 import { Onboarding } from "./components/onboarding/Onboarding";
 import { useOnboardingNeeded, useCompleteOnboarding } from "./hooks/useOnboarding";
@@ -31,9 +34,22 @@ function AppContent() {
 
 export default function App() {
   useEffect(() => {
-    setLiquidGlassEffect().catch(() => {
-      // Liquid glass not supported on this platform — no-op
-    });
+    async function initLiquidGlass() {
+      try {
+        const supported = await isGlassSupported();
+        if (supported) {
+          await setLiquidGlassEffect({ enabled: true });
+          document.documentElement.classList.add("liquid-glass");
+        } else {
+          document.documentElement.classList.add("no-glass");
+          console.warn("[liquid-glass] Not supported on this platform, using CSS fallback");
+        }
+      } catch (e) {
+        document.documentElement.classList.add("no-glass");
+        console.error("[liquid-glass] Failed to apply effect:", e);
+      }
+    }
+    initLiquidGlass();
   }, []);
 
   return (

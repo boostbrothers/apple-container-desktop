@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { X, Copy, ExternalLink, Check } from "lucide-react";
@@ -84,7 +85,7 @@ export function ContainerMdnsDialog({
     removeOverride.mutate(containerName, { onSuccess: onClose });
   };
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
@@ -216,6 +217,7 @@ export function ContainerMdnsDialog({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

@@ -44,9 +44,16 @@ npm run build           # Frontend-only build (tsc + vite)
 - App communicates with Colima/Docker via CLI subprocess execution (not Docker API)
 - Rust backend runs `colima status`, `docker ps`, etc. and returns structured JSON via Tauri IPC
 - Auto-updater configured via `tauri-plugin-updater` with GitHub Releases endpoint
-- Liquid Glass UI via `tauri-plugin-liquid-glass` (macOS 26+ native, vibrancy fallback on older macOS, no-op on other platforms)
+- **Liquid Glass UI는 반드시 항상 적용**: `tauri-plugin-liquid-glass` (macOS 26+ native, vibrancy fallback on older macOS, CSS gradient fallback on unsupported platforms). 프론트엔드 디자인/UI 수정 시 liquid glass 효과가 유지되는지 반드시 확인할 것
 - App icon derived from official Colima SVG logo vector (white llama silhouette + green Docker containers on dark background)
 - CI/CD: GitHub Actions with `tauri-action` for cross-platform builds
+
+## Frontend Design Guidelines
+
+- **DESIGN.md( @DESIGN.md ) 참고 필수**: UI 컴포넌트 디자인, 색상, 타이포그래피, 레이아웃 등 모든 프론트엔드 디자인 관련 작업 시 반드시 `DESIGN.md`를 참조할 것
+- **Liquid Glass 우선**: 모든 UI 요소는 `tauri-plugin-liquid-glass`의 glass 효과와 조화를 이루도록 구현. `body`는 `transparent`를 유지하고, 컴포넌트는 반투명 배경 + `backdrop-filter`를 사용
+- **Glass 클래스 활용**: `glass-panel`, `glass-card`, `glass-sidebar`, `glass-group`, `glass-section` 등 `App.css`에 정의된 glass utility 클래스 사용
+- **Fixed 모달/다이얼로그**: `backdrop-filter`를 사용하는 부모 안에서 `position: fixed` 모달이 클리핑되므로, 반드시 `createPortal(... , document.body)`로 렌더링할 것
 
 ## Release Process
 
