@@ -88,35 +88,35 @@ export function ContainerRow({
 
       {/* Container info */}
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <span className="font-medium text-sm truncate">{displayName}</span>
-          {hostPorts.length > 0 && (
-            <div className="flex items-center gap-1 shrink-0">
-              {hostPorts.slice(0, 3).map((port, i) => (
-                <span
-                  key={i}
-                  className="text-[10px] font-mono text-muted-foreground bg-[var(--glass-bg)] border border-[var(--glass-border)] px-1.5 py-0.5 rounded-md leading-none"
-                >
-                  :{port}
-                </span>
-              ))}
-              {hostPorts.length > 3 && (
-                <span className="text-[10px] text-muted-foreground">
-                  +{hostPorts.length - 3}
-                </span>
-              )}
-            </div>
-          )}
-          {mdnsEnabled && isRunning && (
-            <ContainerMdnsBadge
-              service={mdnsService}
-              onConfigure={() => setShowMdnsDialog(true)}
-            />
-          )}
+          <span className="text-xs text-muted-foreground truncate">
+            {abbreviateImage(container.image)}
+          </span>
         </div>
-        <span className="text-xs text-muted-foreground truncate block mt-0.5">
-          {abbreviateImage(container.image)}
-        </span>
+        {(hostPorts.length > 0 || (mdnsEnabled && isRunning)) && (
+          <div className="flex items-center gap-1.5 mt-1">
+            {hostPorts.slice(0, 3).map((port, i) => (
+              <span
+                key={i}
+                className="text-[10px] font-mono text-muted-foreground bg-[var(--glass-bg)] border border-[var(--glass-border)] px-1.5 py-0.5 rounded-md leading-none"
+              >
+                :{port}
+              </span>
+            ))}
+            {hostPorts.length > 3 && (
+              <span className="text-[10px] text-muted-foreground">
+                +{hostPorts.length - 3}
+              </span>
+            )}
+            {mdnsEnabled && isRunning && (
+              <ContainerMdnsBadge
+                service={mdnsService}
+                onConfigure={() => setShowMdnsDialog(true)}
+              />
+            )}
+          </div>
+        )}
       </div>
 
       {/* Action buttons — icon-only, secondary actions revealed on hover */}

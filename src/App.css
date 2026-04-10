@@ -190,6 +190,27 @@
     @apply text-foreground;
     background: transparent;
   }
+  #root {
+    position: relative;
+    min-height: 100vh;
+  }
+  /* CSS gradient fallback — only when native liquid glass is unavailable */
+  .no-glass #root::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    background: var(--bg-gradient);
+    pointer-events: none;
+  }
+  .no-glass #root::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    background: var(--bg-glow);
+    pointer-events: none;
+  }
   html {
     @apply font-sans;
   }
