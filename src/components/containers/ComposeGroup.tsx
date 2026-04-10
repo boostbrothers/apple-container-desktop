@@ -1,10 +1,17 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { ChevronRight, ChevronDown } from "lucide-react";
+import {
+  ChevronRight,
+  ChevronDown,
+  Play,
+  Square,
+  RotateCcw,
+  Trash2,
+} from "lucide-react";
 import type { Container, MdnsServiceEntry, MdnsConfig } from "../../types";
 import { useContainerAction } from "../../hooks/useContainers";
 import { ContainerRow } from "./ContainerRow";
+import { cn } from "@/lib/utils";
 
 interface ComposeGroupProps {
   project: string;
@@ -15,7 +22,14 @@ interface ComposeGroupProps {
   mdnsConfig?: MdnsConfig;
 }
 
-export function ComposeGroup({ project, containers, onViewLogs, onInspect, mdnsServiceMap, mdnsConfig }: ComposeGroupProps) {
+export function ComposeGroup({
+  project,
+  containers,
+  onViewLogs,
+  onInspect,
+  mdnsServiceMap,
+  mdnsConfig,
+}: ComposeGroupProps) {
   const [expanded, setExpanded] = useState(false);
   const action = useContainerAction();
 
@@ -24,7 +38,9 @@ export function ComposeGroup({ project, containers, onViewLogs, onInspect, mdnsS
   const allRunning = runningCount === totalCount;
   const allStopped = runningCount === 0;
 
-  const handleGroupAction = async (type: "start" | "stop" | "restart" | "remove") => {
+  const handleGroupAction = async (
+    type: "start" | "stop" | "restart" | "remove"
+  ) => {
     const targets = containers.filter((c) => {
       if (type === "start") return c.state !== "running";
       if (type === "stop") return c.state === "running";
@@ -37,49 +53,93 @@ export function ComposeGroup({ project, containers, onViewLogs, onInspect, mdnsS
 
   return (
     <div className="glass-group overflow-hidden">
+      {/* Group header */}
       <div
-        className="flex items-center gap-2 px-4 py-3 cursor-pointer hover:bg-[var(--glass-bg-hover)] transition-all"
+        className="group/header flex items-center gap-2 px-4 py-2.5 cursor-pointer hover:bg-[var(--glass-bg-hover)] transition-colors"
         onClick={() => setExpanded(!expanded)}
       >
         {expanded ? (
-          <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
         ) : (
-          <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
         )}
         <span className="font-medium text-sm">{project}</span>
-        <Badge variant={allRunning ? "default" : allStopped ? "secondary" : "outline"} className="text-xs">
-          {runningCount}/{totalCount} running
-        </Badge>
-        <div className="ml-auto flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-          <Button variant="ghost" size="sm" onClick={() => handleGroupAction("start")} disabled={action.isPending || allRunning}>
-            Start
+        <span
+          className={cn(
+            "text-xs tabular-nums",
+            allRunning
+              ? "text-[var(--status-running-text)]"
+              : allStopped
+                ? "text-[var(--status-stopped-text)]"
+                : "text-muted-foreground"
+          )}
+        >
+          {runningCount}/{totalCount}
+        </span>
+
+        {/* Group actions — revealed on hover */}
+        <div
+          className="ml-auto flex items-center gap-0.5 opacity-0 group-hover/header:opacity-100 transition-opacity"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            onClick={() => handleGroupAction("start")}
+            disabled={action.isPending || allRunning}
+            title="Start All"
+          >
+            <Play className="h-3.5 w-3.5" />
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => handleGroupAction("stop")} disabled={action.isPending || allStopped}>
-            Stop
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            onClick={() => handleGroupAction("stop")}
+            disabled={action.isPending || allStopped}
+            title="Stop All"
+          >
+            <Square className="h-3.5 w-3.5" />
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => handleGroupAction("restart")} disabled={action.isPending}>
-            Restart
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            onClick={() => handleGroupAction("restart")}
+            disabled={action.isPending}
+            title="Restart All"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
           </Button>
-          <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleGroupAction("remove")} disabled={action.isPending}>
-            Remove
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            className="text-destructive hover:text-destructive"
+            onClick={() => handleGroupAction("remove")}
+            disabled={action.isPending}
+            title="Remove All"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </div>
       </div>
+
+      {/* Expanded container list — flat dividers, no nested cards */}
       {expanded && (
-        <div className="border-t border-[var(--glass-border)] px-2 pb-2 pt-1 space-y-1">
+        <div className="border-t border-[var(--glass-border)] divide-y divide-[var(--glass-border)]">
           {containers.map((container) => (
-            <div key={container.id} className="pl-4">
-              <ContainerRow
-                container={container}
-                onViewLogs={onViewLogs}
-                onInspect={onInspect}
-                showServiceName
-                mdnsService={mdnsServiceMap?.get(container.name)}
-                mdnsOverride={mdnsConfig?.container_overrides?.[container.name]}
-                mdnsEnabled={mdnsConfig?.enabled}
-                defaultServiceType={mdnsConfig?.default_service_type}
-              />
-            </div>
+            <ContainerRow
+              key={container.id}
+              container={container}
+              onViewLogs={onViewLogs}
+              onInspect={onInspect}
+              showServiceName
+              compact
+              mdnsService={mdnsServiceMap?.get(container.name)}
+              mdnsOverride={
+                mdnsConfig?.container_overrides?.[container.name]
+              }
+              mdnsEnabled={mdnsConfig?.enabled}
+              defaultServiceType={mdnsConfig?.default_service_type}
+            />
           ))}
         </div>
       )}
