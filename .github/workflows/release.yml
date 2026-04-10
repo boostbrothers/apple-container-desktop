@@ -95,13 +95,15 @@ jobs:
       - name: Sync version from git tag
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          echo "Syncing version to ${VERSION}"
+          # Strip pre-release identifier for bundle version (WiX/NSIS require X.Y.Z format)
+          BUNDLE_VERSION="${VERSION%%-*}"
+          echo "Syncing version to ${BUNDLE_VERSION} (tag: ${VERSION})"
           # Update tauri.conf.json
-          sed -i.bak "s/\"version\": \".*\"/\"version\": \"${VERSION}\"/" src-tauri/tauri.conf.json && rm src-tauri/tauri.conf.json.bak
+          sed -i.bak "s/\"version\": \".*\"/\"version\": \"${BUNDLE_VERSION}\"/" src-tauri/tauri.conf.json && rm src-tauri/tauri.conf.json.bak
           # Update package.json
-          sed -i.bak "s/\"version\": \".*\"/\"version\": \"${VERSION}\"/" package.json && rm package.json.bak
+          sed -i.bak "s/\"version\": \".*\"/\"version\": \"${BUNDLE_VERSION}\"/" package.json && rm package.json.bak
           # Update Cargo.toml
-          sed -i.bak "s/^version = \".*\"/version = \"${VERSION}\"/" src-tauri/Cargo.toml && rm src-tauri/Cargo.toml.bak
+          sed -i.bak "s/^version = \".*\"/version = \"${BUNDLE_VERSION}\"/" src-tauri/Cargo.toml && rm src-tauri/Cargo.toml.bak
         shell: bash
 
       - name: Configure beta updater endpoint
