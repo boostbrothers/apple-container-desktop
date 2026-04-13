@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Container, Image, ColimaStatus, VmSettings, HostInfo, Volume, Network, MountSettings, MountEntry, NetworkSettings, DnsHostEntry, DockerDaemonSettings, ContainerDetail, ContainerStats, ColimaVersion, VersionCheck, ColimaInstallCheck, Project, ProjectTypeDetection, EnvVarEntry, InfisicalConfig, AppSettings, DevcontainerConfigResponse, DevcontainerValidationError, GlobalEnvVar, EnvProfile, ProjectEnvBinding, MdnsConfig, ContainerMdnsOverride, MdnsSyncResult, MdnsStatusResponse, ProxyStatus } from "../types";
+import type { Container, Image, ColimaStatus, VmSettings, HostInfo, Volume, Network, MountSettings, MountEntry, NetworkSettings, DnsHostEntry, DockerDaemonSettings, ContainerDetail, ContainerStats, ColimaVersion, VersionCheck, ColimaInstallCheck, Project, ProjectTypeDetection, EnvVarEntry, InfisicalConfig, AppSettings, DevcontainerConfigResponse, DevcontainerValidationError, GlobalEnvVar, EnvProfile, ProjectEnvBinding, DomainConfig, ContainerDomainOverride, DomainSyncResult, ProxyStatus } from "../types";
 
 export const api = {
   colimaStatus: () => invoke<ColimaStatus>("colima_status"),
@@ -153,21 +153,14 @@ export const api = {
   decryptProjectEnvSecret: (projectId: string, key: string, profile: string) =>
     invoke<string>("decrypt_project_env_secret", { projectId, key, profile }),
 
-  // mDNS
-  mdnsGetConfig: () =>
-    invoke<MdnsConfig>("mdns_get_config"),
-  mdnsSetConfig: (config: MdnsConfig) =>
-    invoke<void>("mdns_set_config", { config }),
-  mdnsSetContainerOverride: (containerName: string, overrideConfig: ContainerMdnsOverride) =>
-    invoke<void>("mdns_set_container_override", { containerName, overrideConfig }),
-  mdnsRemoveContainerOverride: (containerName: string) =>
-    invoke<void>("mdns_remove_container_override", { containerName }),
-  mdnsSyncContainers: () =>
-    invoke<MdnsSyncResult>("mdns_sync_containers"),
-  mdnsGetStatus: () =>
-    invoke<MdnsStatusResponse>("mdns_get_status"),
-
-  // Reverse Proxy
+  // Container Domains (DNS + Reverse Proxy)
+  domainGetConfig: () => invoke<DomainConfig>("domain_get_config"),
+  domainSetConfig: (config: DomainConfig) => invoke<void>("domain_set_config", { config }),
+  domainSetOverride: (containerName: string, overrideConfig: ContainerDomainOverride) =>
+    invoke<void>("domain_set_override", { containerName, overrideConfig }),
+  domainRemoveOverride: (containerName: string) =>
+    invoke<void>("domain_remove_override", { containerName }),
+  domainSync: () => invoke<DomainSyncResult>("domain_sync"),
   proxyStart: () => invoke<void>("proxy_start"),
   proxyStop: () => invoke<void>("proxy_stop"),
   proxyGetStatus: () => invoke<ProxyStatus>("proxy_get_status"),
@@ -175,6 +168,6 @@ export const api = {
     invoke<void>("proxy_add_route", { hostname, targetPort }),
   proxyRemoveRoute: (hostname: string) =>
     invoke<void>("proxy_remove_route", { hostname }),
-  proxyEnablePf: () => invoke<void>("proxy_enable_pf"),
-  proxyDisablePf: () => invoke<void>("proxy_disable_pf"),
+  proxyInstallResolver: () => invoke<void>("proxy_install_resolver"),
+  proxyUninstallResolver: () => invoke<void>("proxy_uninstall_resolver"),
 };

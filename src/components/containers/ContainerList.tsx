@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useContainers, usePruneContainers } from "../../hooks/useContainers";
 import { useProjects } from "../../hooks/useProjects";
-import { useMdnsConfig, useMdnsSync } from "../../hooks/useMdns";
+import { useDomainConfig, useDomainSync } from "../../hooks/useDomains";
 import { ContainerRow } from "./ContainerRow";
 import { ComposeGroup } from "./ComposeGroup";
 import { ContainerLogs } from "./ContainerLogs";
@@ -10,7 +10,7 @@ import { ContainerDetail } from "./ContainerDetail";
 import { ProjectsTab } from "./ProjectsTab";
 import { ProjectDetail } from "./ProjectDetail";
 import { Button } from "@/components/ui/button";
-import type { Container, Project, MdnsServiceEntry } from "../../types";
+import type { Container, Project, DomainServiceEntry } from "../../types";
 
 type Filter = "all" | "running" | "stopped";
 type Tab = "running" | "projects";
@@ -33,8 +33,8 @@ export function ContainerList() {
     () => allProjects?.find((p) => p.id === selectedProjectId) ?? null,
     [allProjects, selectedProjectId]
   );
-  const { data: mdnsConfig } = useMdnsConfig();
-  const { data: mdnsSync } = useMdnsSync(mdnsConfig?.enabled ?? false);
+  const { data: domainConfig } = useDomainConfig();
+  const { data: domainSync } = useDomainSync(domainConfig?.enabled ?? false);
 
   const stoppedCount = useMemo(() =>
     containers?.filter((c) => c.state !== "running").length ?? 0,
@@ -70,15 +70,15 @@ export function ContainerList() {
     return { composeGroups, standalone };
   }, [filtered]);
 
-  const mdnsServiceMap = useMemo(() => {
-    const map = new Map<string, MdnsServiceEntry>();
-    if (mdnsSync?.services) {
-      for (const svc of mdnsSync.services) {
+  const domainServiceMap = useMemo(() => {
+    const map = new Map<string, DomainServiceEntry>();
+    if (domainSync?.services) {
+      for (const svc of domainSync.services) {
         map.set(svc.container_name, svc);
       }
     }
     return map;
-  }, [mdnsSync]);
+  }, [domainSync]);
 
   if (selectedProject) {
     return <ProjectDetail project={selectedProject} onBack={() => setSelectedProjectId(null)} />;
@@ -151,8 +151,8 @@ export function ContainerList() {
                 containers={group.containers}
                 onViewLogs={setLogsContainerId}
                 onInspect={setInspectId}
-                mdnsServiceMap={mdnsServiceMap}
-                mdnsConfig={mdnsConfig}
+                domainServiceMap={domainServiceMap}
+                domainConfig={domainConfig}
               />
             ))}
             {standalone.map((container) => (
@@ -161,10 +161,9 @@ export function ContainerList() {
                 container={container}
                 onViewLogs={setLogsContainerId}
                 onInspect={setInspectId}
-                mdnsService={mdnsServiceMap.get(container.name)}
-                mdnsOverride={mdnsConfig?.container_overrides?.[container.name]}
-                mdnsEnabled={mdnsConfig?.enabled}
-                defaultServiceType={mdnsConfig?.default_service_type}
+                domainService={domainServiceMap.get(container.name)}
+                domainOverride={domainConfig?.container_overrides?.[container.name]}
+                domainEnabled={domainConfig?.enabled}
               />
             ))}
             {composeGroups.length === 0 && standalone.length === 0 && !isLoading && (

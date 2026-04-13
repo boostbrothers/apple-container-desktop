@@ -3,7 +3,7 @@ use crate::cli::types::{
     Project, ProjectWithStatus, ProjectsConfig, EnvVarEntry,
     ProjectTypeDetection, ProjectEnvBinding,
 };
-use crate::mdns::config::{self as mdns_config, ContainerMdnsOverride};
+use crate::proxy::config::{self as domain_config, ContainerDomainOverride};
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
@@ -594,8 +594,8 @@ pub async fn project_up(app: AppHandle, id: String) -> Result<(), String> {
     run_project_up(&app, &project, &event_name).await?;
 
     // Auto-register mDNS services for project ports
-    if let Err(e) = auto_register_project_mdns(&app, &project).await {
-        let _ = app.emit(&event_name, format!("mDNS auto-register warning: {}", e));
+    if let Err(e) = auto_register_project_domains(&app, &project).await {
+        let _ = app.emit(&event_name, format!("Domain auto-register warning: {}", e));
     }
 
     Ok(())
@@ -660,13 +660,13 @@ fn parse_host_port(mapping: &str) -> Option<u16> {
 }
 
 /// Auto-register mDNS overrides for a project's containers after startup.
-async fn auto_register_project_mdns(app: &AppHandle, project: &Project) -> Result<(), String> {
+async fn auto_register_project_domains(app: &AppHandle, project: &Project) -> Result<(), String> {
     let config_dir = app
         .path()
         .app_data_dir()
         .map_err(|e| format!("Failed to get app data dir: {}", e))?;
-    let config_path = config_dir.join("mdns-config.json");
-    let mut config = mdns_config::load_config(&config_path).await;
+    let config_path = config_dir.join("domain-config.json");
+    let mut config = domain_config::load_config(&config_path).await;
 
     if !config.enabled {
         return Ok(());
@@ -711,10 +711,9 @@ async fn auto_register_project_mdns(app: &AppHandle, project: &Project) -> Resul
 
         config.container_overrides.insert(
             name.clone(),
-            ContainerMdnsOverride {
+            ContainerDomainOverride {
                 enabled: true,
                 hostname: Some(hostname),
-                service_type: None,
                 port: first_port,
             },
         );
@@ -722,7 +721,7 @@ async fn auto_register_project_mdns(app: &AppHandle, project: &Project) -> Resul
     }
 
     if changed {
-        mdns_config::save_config(&config_path, &config).await?;
+        domain_config::save_config(&config_path, &config).await?;
     }
 
     Ok(())

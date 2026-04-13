@@ -8,7 +8,7 @@ import {
   RotateCcw,
   Trash2,
 } from "lucide-react";
-import type { Container, MdnsServiceEntry, MdnsConfig } from "../../types";
+import type { Container, DomainServiceEntry, DomainConfig } from "../../types";
 import { useContainerAction } from "../../hooks/useContainers";
 import { ContainerRow } from "./ContainerRow";
 import { cn } from "@/lib/utils";
@@ -18,8 +18,8 @@ interface ComposeGroupProps {
   containers: Container[];
   onViewLogs: (id: string) => void;
   onInspect?: (id: string) => void;
-  mdnsServiceMap?: Map<string, MdnsServiceEntry>;
-  mdnsConfig?: MdnsConfig;
+  domainServiceMap?: Map<string, DomainServiceEntry>;
+  domainConfig?: DomainConfig;
 }
 
 export function ComposeGroup({
@@ -27,8 +27,8 @@ export function ComposeGroup({
   containers,
   onViewLogs,
   onInspect,
-  mdnsServiceMap,
-  mdnsConfig,
+  domainServiceMap,
+  domainConfig,
 }: ComposeGroupProps) {
   const [expanded, setExpanded] = useState(false);
   const action = useContainerAction();
@@ -133,12 +133,11 @@ export function ComposeGroup({
               onInspect={onInspect}
               showServiceName
               compact
-              mdnsService={mdnsServiceMap?.get(container.name)}
-              mdnsOverride={
-                mdnsConfig?.container_overrides?.[container.name]
+              domainService={domainServiceMap?.get(container.name)}
+              domainOverride={
+                domainConfig?.container_overrides?.[container.name]
               }
-              mdnsEnabled={mdnsConfig?.enabled}
-              defaultServiceType={mdnsConfig?.default_service_type}
+              domainEnabled={domainConfig?.enabled}
             />
           ))}
         </div>

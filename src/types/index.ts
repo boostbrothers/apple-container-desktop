@@ -257,55 +257,34 @@ export interface DevcontainerValidationError {
 export type ConfigTab = "general" | "features" | "ports-env" | "lifecycle" | "json";
 export type DevcontainerSourceType = "image" | "dockerfile";
 
-// ─── mDNS ────────────────────────────────────────────────────────────────────
+// ─── Container Domains (DNS + Reverse Proxy) ───────────────────────────────
 
-export interface MdnsConfig {
+export interface DomainConfig {
   enabled: boolean;
   auto_register: boolean;
-  default_service_type: string;
-  ip_mode: string;
-  container_overrides: Record<string, ContainerMdnsOverride>;
+  container_overrides: Record<string, ContainerDomainOverride>;
 }
 
-export interface ContainerMdnsOverride {
+export interface ContainerDomainOverride {
   enabled: boolean;
   hostname?: string | null;
-  service_type?: string | null;
   port?: number | null;
 }
 
-export interface MdnsServiceEntry {
+export interface DomainServiceEntry {
   container_id: string;
   container_name: string;
   hostname: string;
-  service_type: string;
+  domain: string;
   port: number;
   registered: boolean;
   auto_registered: boolean;
 }
 
-export interface MdnsSyncResult {
-  services: MdnsServiceEntry[];
-  daemon_running: boolean;
+export interface DomainSyncResult {
+  services: DomainServiceEntry[];
 }
 
-export interface MdnsStatusResponse {
-  enabled: boolean;
-  daemon_running: boolean;
-  registered_count: number;
-  services: MdnsRegisteredService[];
-}
-
-export interface MdnsRegisteredService {
-  container_name: string;
-  hostname: string;
-  service_type: string;
-  port: number;
-  fullname: string;
-  auto_registered: boolean;
-}
-
-// Reverse Proxy
 export interface ProxyRoute {
   hostname: string;
   target_port: number;
@@ -313,7 +292,9 @@ export interface ProxyRoute {
 
 export interface ProxyStatus {
   running: boolean;
-  port: number;
+  proxy_port: number;
+  dns_port: number;
+  domain_suffix: string;
+  resolver_installed: boolean;
   routes: ProxyRoute[];
-  pf_enabled: boolean;
 }

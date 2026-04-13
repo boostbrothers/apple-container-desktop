@@ -46,7 +46,8 @@ impl ProxyServer {
     }
 
     pub async fn run(&self) -> Result<(), String> {
-        let addr = SocketAddr::from(([127, 0, 0, 1], self.port));
+        // Bind to 0.0.0.0 — macOS 10.14+ allows unprivileged port 80 binding on 0.0.0.0
+        let addr = SocketAddr::from(([0, 0, 0, 0], self.port));
         let listener = TcpListener::bind(addr)
             .await
             .map_err(|e| format!("Failed to bind proxy on port {}: {}", self.port, e))?;
@@ -60,10 +61,15 @@ impl ProxyServer {
                     break;
                 }
                 result = listener.accept() => {
-                    let (stream, _) = match result {
+                    let (stream, peer) = match result {
                         Ok(v) => v,
                         Err(_) => continue,
                     };
+
+                    // Reject non-localhost connections (security: 0.0.0.0 binding)
+                    if !peer.ip().is_loopback() {
+                        continue;
+                    }
 
                     let routes = Arc::clone(&routes);
                     tokio::spawn(async move {

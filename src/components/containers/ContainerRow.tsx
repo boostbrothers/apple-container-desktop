@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   SquareTerminal,
@@ -11,13 +10,11 @@ import {
 } from "lucide-react";
 import type {
   Container,
-  MdnsServiceEntry,
-  ContainerMdnsOverride,
+  DomainServiceEntry,
+  ContainerDomainOverride,
 } from "../../types";
 import { useContainerAction } from "../../hooks/useContainers";
 import { useOpenTerminalExec } from "../../hooks/useProjects";
-import { ContainerMdnsBadge } from "./ContainerMdnsBadge";
-import { ContainerMdnsDialog } from "./ContainerMdnsDialog";
 import { cn } from "@/lib/utils";
 
 function parseHostPorts(ports: string): string[] {
@@ -42,10 +39,9 @@ interface ContainerRowProps {
   onInspect?: (id: string) => void;
   showServiceName?: boolean;
   compact?: boolean;
-  mdnsService?: MdnsServiceEntry;
-  mdnsOverride?: ContainerMdnsOverride;
-  mdnsEnabled?: boolean;
-  defaultServiceType?: string;
+  domainService?: DomainServiceEntry;
+  domainOverride?: ContainerDomainOverride;
+  domainEnabled?: boolean;
 }
 
 export function ContainerRow({
@@ -54,14 +50,11 @@ export function ContainerRow({
   onInspect,
   showServiceName,
   compact,
-  mdnsService,
-  mdnsOverride,
-  mdnsEnabled,
-  defaultServiceType,
+  domainService,
+  domainEnabled,
 }: ContainerRowProps) {
   const action = useContainerAction();
   const openTerminal = useOpenTerminalExec();
-  const [showMdnsDialog, setShowMdnsDialog] = useState(false);
   const isRunning = container.state === "running";
   const displayName =
     showServiceName && container.compose_service
@@ -94,7 +87,7 @@ export function ContainerRow({
             {abbreviateImage(container.image)}
           </span>
         </div>
-        {(hostPorts.length > 0 || (mdnsEnabled && isRunning)) && (
+        {(hostPorts.length > 0 || (domainEnabled && isRunning && domainService?.registered)) && (
           <div className="flex items-center gap-1.5 mt-1">
             {hostPorts.slice(0, 3).map((port, i) => (
               <span
@@ -109,11 +102,10 @@ export function ContainerRow({
                 +{hostPorts.length - 3}
               </span>
             )}
-            {mdnsEnabled && isRunning && (
-              <ContainerMdnsBadge
-                service={mdnsService}
-                onConfigure={() => setShowMdnsDialog(true)}
-              />
+            {domainEnabled && isRunning && domainService?.registered && (
+              <span className="text-[10px] font-mono text-muted-foreground">
+                {domainService.domain}
+              </span>
             )}
           </div>
         )}
@@ -201,15 +193,6 @@ export function ContainerRow({
         </Button>
       </div>
 
-      {showMdnsDialog && (
-        <ContainerMdnsDialog
-          containerName={container.name}
-          currentOverride={mdnsOverride}
-          currentService={mdnsService}
-          defaultServiceType={defaultServiceType ?? "_http._tcp.local."}
-          onClose={() => setShowMdnsDialog(false)}
-        />
-      )}
     </div>
   );
 }
