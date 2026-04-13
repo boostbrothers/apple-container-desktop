@@ -287,12 +287,14 @@ export interface DomainSyncResult {
 
 export interface ProxyRoute {
   hostname: string;
+  domain: string;
   target_port: number;
+  container_name: string;
 }
 
 export interface ProxyStatus {
   running: boolean;
-  proxy_port: number;
+  gateway_running: boolean;
   dns_port: number;
   domain_suffix: string;
   resolver_installed: boolean;

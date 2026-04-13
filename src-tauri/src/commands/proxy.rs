@@ -1,23 +1,19 @@
 use crate::proxy::config::{self as domain_config, ContainerDomainOverride, DomainConfig};
 use crate::proxy::dns::{DnsServer, DnsTable};
-use crate::proxy::server::{ProxyServer, RouteTable};
+use crate::proxy::gateway;
 use crate::proxy::sync::{self, DomainSyncResult};
 use serde::Serialize;
-use std::net::Ipv4Addr;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tauri::{Manager, State};
 use tokio::sync::{Mutex, Notify};
 
 const DNS_PORT: u16 = 5553;
-const PROXY_PORT: u16 = 80;
 const DOMAIN_SUFFIX: &str = "colima.local";
 
-/// Managed state for the DNS + Proxy subsystem.
+/// Managed state for the DNS + Gateway subsystem.
 pub struct ProxyState {
-    pub proxy_routes: RouteTable,
     pub dns_table: DnsTable,
-    pub proxy_shutdown: Arc<Notify>,
     pub dns_shutdown: Arc<Notify>,
     pub running: Arc<Mutex<bool>>,
 }
@@ -25,9 +21,7 @@ pub struct ProxyState {
 impl ProxyState {
     pub fn new() -> Self {
         Self {
-            proxy_routes: Arc::new(Mutex::new(std::collections::HashMap::new())),
             dns_table: Arc::new(Mutex::new(std::collections::HashMap::new())),
-            proxy_shutdown: Arc::new(Notify::new()),
             dns_shutdown: Arc::new(Notify::new()),
             running: Arc::new(Mutex::new(false)),
         }
@@ -45,13 +39,15 @@ fn config_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 #[derive(Serialize)]
 pub struct ProxyRoute {
     pub hostname: String,
+    pub domain: String,
     pub target_port: u16,
+    pub container_name: String,
 }
 
 #[derive(Serialize)]
 pub struct ProxyStatus {
     pub running: bool,
-    pub proxy_port: u16,
+    pub gateway_running: bool,
     pub dns_port: u16,
     pub domain_suffix: String,
     pub resolver_installed: bool,
@@ -111,9 +107,9 @@ pub async fn domain_sync(
     let config = domain_config::load_config(&path).await;
 
     let mut dns = state.dns_table.lock().await;
-    let mut routes = state.proxy_routes.lock().await;
+    let gw_running = gateway::is_gateway_running().await;
 
-    sync::sync_containers(&config, &mut dns, &mut routes).await
+    sync::sync_containers(&config, &mut dns, gw_running).await
 }
 
 // ─── Start / Stop ───────────────────────────────────────────────────────────
@@ -125,6 +121,7 @@ pub async fn proxy_start(state: State<'_, ProxyState>) -> Result<(), String> {
         return Ok(());
     }
 
+    // Start DNS server
     let dns_table = Arc::clone(&state.dns_table);
     let dns_shutdown = Arc::clone(&state.dns_shutdown);
     tokio::spawn(async move {
@@ -134,14 +131,8 @@ pub async fn proxy_start(state: State<'_, ProxyState>) -> Result<(), String> {
         }
     });
 
-    let routes = Arc::clone(&state.proxy_routes);
-    let proxy_shutdown = Arc::clone(&state.proxy_shutdown);
-    tokio::spawn(async move {
-        let server = ProxyServer::with_shared(PROXY_PORT, routes, proxy_shutdown);
-        if let Err(e) = server.run().await {
-            eprintln!("Proxy server error: {}", e);
-        }
-    });
+    // Start Traefik gateway container
+    gateway::start_gateway().await?;
 
     *running = true;
     Ok(())
@@ -153,8 +144,16 @@ pub async fn proxy_stop(state: State<'_, ProxyState>) -> Result<(), String> {
     if !*running {
         return Ok(());
     }
-    state.proxy_shutdown.notify_one();
+
+    // Stop DNS server
     state.dns_shutdown.notify_one();
+
+    // Stop gateway container
+    gateway::stop_gateway().await?;
+
+    // Clear route configs
+    let _ = gateway::clear_route_configs();
+
     *running = false;
     Ok(())
 }
@@ -164,18 +163,14 @@ pub async fn proxy_stop(state: State<'_, ProxyState>) -> Result<(), String> {
 #[tauri::command]
 pub async fn proxy_get_status(state: State<'_, ProxyState>) -> Result<ProxyStatus, String> {
     let running = *state.running.lock().await;
-    let table = state.proxy_routes.lock().await;
-    let routes: Vec<ProxyRoute> = table
-        .iter()
-        .map(|(hostname, port)| ProxyRoute {
-            hostname: hostname.clone(),
-            target_port: *port,
-        })
-        .collect();
+    let gw_running = gateway::is_gateway_running().await;
+
+    // Read active routes from Traefik config dir
+    let routes = read_active_routes();
 
     Ok(ProxyStatus {
         running,
-        proxy_port: PROXY_PORT,
+        gateway_running: gw_running,
         dns_port: DNS_PORT,
         domain_suffix: DOMAIN_SUFFIX.to_string(),
         resolver_installed: check_resolver_installed(),
@@ -183,45 +178,47 @@ pub async fn proxy_get_status(state: State<'_, ProxyState>) -> Result<ProxyStatu
     })
 }
 
-// ─── Route Management ───────────────────────────────────────────────────────
-
-#[tauri::command]
-pub async fn proxy_add_route(
-    state: State<'_, ProxyState>,
-    hostname: String,
-    target_port: u16,
-) -> Result<(), String> {
-    let fqdn = if hostname.ends_with(DOMAIN_SUFFIX) {
-        hostname
-    } else {
-        format!("{}.{}", hostname, DOMAIN_SUFFIX)
+fn read_active_routes() -> Vec<ProxyRoute> {
+    let config_dir = match gateway::dynamic_config_dir() {
+        Ok(d) => d,
+        Err(_) => return vec![],
     };
-    state
-        .proxy_routes
-        .lock()
-        .await
-        .insert(fqdn.clone(), target_port);
-    state
-        .dns_table
-        .lock()
-        .await
-        .insert(fqdn, Ipv4Addr::LOCALHOST);
-    Ok(())
+
+    let mut routes = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(&config_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().map(|e| e == "yml").unwrap_or(false) {
+                if let Ok(content) = std::fs::read_to_string(&path) {
+                    // Simple parse: extract Host(`...`) and url
+                    if let (Some(domain), Some(url)) = (
+                        extract_between(&content, "Host(`", "`)"),
+                        extract_between(&content, "url: \"http://", "\""),
+                    ) {
+                        let port = url
+                            .rsplit(':')
+                            .next()
+                            .and_then(|p| p.parse::<u16>().ok())
+                            .unwrap_or(0);
+                        let hostname = domain.trim_end_matches(&format!(".{}", DOMAIN_SUFFIX));
+                        routes.push(ProxyRoute {
+                            hostname: hostname.to_string(),
+                            domain: domain.to_string(),
+                            target_port: port,
+                            container_name: hostname.to_string(),
+                        });
+                    }
+                }
+            }
+        }
+    }
+    routes
 }
 
-#[tauri::command]
-pub async fn proxy_remove_route(
-    state: State<'_, ProxyState>,
-    hostname: String,
-) -> Result<(), String> {
-    let fqdn = if hostname.ends_with(DOMAIN_SUFFIX) {
-        hostname
-    } else {
-        format!("{}.{}", hostname, DOMAIN_SUFFIX)
-    };
-    state.proxy_routes.lock().await.remove(&fqdn);
-    state.dns_table.lock().await.remove(&fqdn);
-    Ok(())
+fn extract_between<'a>(text: &'a str, start: &str, end: &str) -> Option<String> {
+    let s = text.find(start)? + start.len();
+    let e = text[s..].find(end)? + s;
+    Some(text[s..e].to_string())
 }
 
 // ─── /etc/resolver ──────────────────────────────────────────────────────────

@@ -1,4 +1,4 @@
 pub mod config;
 pub mod dns;
-pub mod server;
+pub mod gateway;
 pub mod sync;

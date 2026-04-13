@@ -100,7 +100,7 @@ pub fn run() {
             commands::env_store::decrypt_project_env_secret,
             commands::app_settings::get_app_settings,
             commands::app_settings::save_app_settings,
-            // Container Domains (DNS + Reverse Proxy)
+            // Container Domains (DNS + Traefik Gateway)
             commands::proxy::domain_get_config,
             commands::proxy::domain_set_config,
             commands::proxy::domain_set_override,
@@ -109,8 +109,6 @@ pub fn run() {
             commands::proxy::proxy_start,
             commands::proxy::proxy_stop,
             commands::proxy::proxy_get_status,
-            commands::proxy::proxy_add_route,
-            commands::proxy::proxy_remove_route,
             commands::proxy::proxy_install_resolver,
             commands::proxy::proxy_uninstall_resolver,
         ])

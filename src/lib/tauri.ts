@@ -164,10 +164,6 @@ export const api = {
   proxyStart: () => invoke<void>("proxy_start"),
   proxyStop: () => invoke<void>("proxy_stop"),
   proxyGetStatus: () => invoke<ProxyStatus>("proxy_get_status"),
-  proxyAddRoute: (hostname: string, targetPort: number) =>
-    invoke<void>("proxy_add_route", { hostname, targetPort }),
-  proxyRemoveRoute: (hostname: string) =>
-    invoke<void>("proxy_remove_route", { hostname }),
   proxyInstallResolver: () => invoke<void>("proxy_install_resolver"),
   proxyUninstallResolver: () => invoke<void>("proxy_uninstall_resolver"),
 };

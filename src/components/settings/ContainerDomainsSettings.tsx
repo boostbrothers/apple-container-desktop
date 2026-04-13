@@ -135,6 +135,7 @@ function ProxySection() {
   });
 
   const running = status?.running ?? false;
+  const gwRunning = status?.gateway_running ?? false;
   const resolverInstalled = status?.resolver_installed ?? false;
   const routes = status?.routes ?? [];
   const suffix = status?.domain_suffix ?? "colima.local";
@@ -170,12 +171,12 @@ function ProxySection() {
         </p>
       </div>
 
-      {/* Proxy Server */}
+      {/* Gateway */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className={`h-2 w-2 rounded-full ${running ? "bg-emerald-500" : "bg-muted-foreground/30"}`} />
-            <span className="text-sm font-medium">Proxy Server</span>
+            <div className={`h-2 w-2 rounded-full ${gwRunning ? "bg-emerald-500" : running ? "bg-amber-500" : "bg-muted-foreground/30"}`} />
+            <span className="text-sm font-medium">Gateway</span>
           </div>
           <Button
             size="sm"
@@ -183,24 +184,26 @@ function ProxySection() {
             onClick={() => (running ? stopProxy.mutate() : startProxy.mutate())}
             disabled={startProxy.isPending || stopProxy.isPending}
           >
-            {running ? "Stop" : "Start"}
+            {startProxy.isPending || stopProxy.isPending ? "..." : running ? "Stop" : "Start"}
           </Button>
         </div>
         <p className="text-[10px] text-muted-foreground pl-4">
-          {running
-            ? "✓ DNS :5553 + HTTP :80 running"
-            : "DNS server (:5553) + HTTP reverse proxy (:80)"}
+          {gwRunning
+            ? "✓ DNS :5553 + Traefik gateway :80 — containers routed via Docker network"
+            : running
+              ? "DNS running, gateway starting..."
+              : "Starts DNS server and Traefik gateway container"}
         </p>
       </div>
 
       {/* Routes */}
-      {running && routes.length > 0 && (
+      {routes.length > 0 && (
         <div className="glass-card p-3 space-y-1.5">
           <div className="text-xs font-medium mb-1">Active Routes</div>
           {routes.map((r) => (
-            <div key={r.hostname} className="flex items-center justify-between text-xs">
-              <code className="text-[11px]">http://{r.hostname}</code>
-              <span className="text-muted-foreground">→ :{r.target_port}</span>
+            <div key={r.domain} className="flex items-center justify-between text-xs">
+              <code className="text-[11px]">http://{r.domain}</code>
+              <span className="text-muted-foreground">→ {r.container_name}:{r.target_port}</span>
             </div>
           ))}
         </div>
