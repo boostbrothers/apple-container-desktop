@@ -323,7 +323,7 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
             ))}
             <p className="text-[10px] text-muted-foreground">
               host:container format (e.g. 3000:3000, 5432:5432)
-              {project.project_type === "compose" && " -- Compose projects use ports from YAML."}
+              {project.project_type === "compose" && " — Added on top of ports defined in compose YAML."}
             </p>
           </div>
 
