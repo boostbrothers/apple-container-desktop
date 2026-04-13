@@ -28,6 +28,12 @@
 curl -fsSL https://raw.githubusercontent.com/yoonhoGo/colima-desktop/main/install.sh | sh
 ```
 
+최신 **베타** 버전을 설치하려면:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/yoonhoGo/colima-desktop/main/install.sh | sh -s -- --beta
+```
+
 설치 스크립트가 OS와 아키텍처를 자동 감지하고, GitHub에서 최신 릴리스를 다운로드하여 설치합니다.
 
 - **macOS**: `Colima Desktop.app`을 `/Applications`에 설치

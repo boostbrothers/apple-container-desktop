@@ -28,6 +28,12 @@ Built with **Tauri 2** (Rust) + **React 19** + **TypeScript**.
 curl -fsSL https://raw.githubusercontent.com/yoonhoGo/colima-desktop/main/install.sh | sh
 ```
 
+To install the latest **beta** version:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/yoonhoGo/colima-desktop/main/install.sh | sh -s -- --beta
+```
+
 The install script automatically detects your OS and architecture, downloads the latest release from GitHub, and installs it.
 
 - **macOS**: Installs `Colima Desktop.app` to `/Applications`
