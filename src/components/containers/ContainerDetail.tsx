@@ -39,7 +39,7 @@ export function ContainerDetail({ containerId, onBack }: ContainerDetailProps) {
   const isRunning = detail.state === "running";
 
   return (
-    <div>
+    <div className="min-w-0">
       <div className="mb-4 flex items-center gap-3">
         <Button variant="ghost" size="sm" onClick={onBack}>
           <ArrowLeft className="mr-1 h-4 w-4" /> Back
@@ -100,9 +100,9 @@ export function ContainerDetail({ containerId, onBack }: ContainerDetailProps) {
         {/* Overview */}
         <section className="glass-section p-4">
           <h2 className="mb-3 text-sm font-semibold">Overview</h2>
-          <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
+          <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-sm">
             <span className="text-muted-foreground">Image</span>
-            <span>{detail.image}</span>
+            <span className="truncate" title={detail.image}>{detail.image}</span>
             <span className="text-muted-foreground">Platform</span>
             <span>{detail.platform || "-"}</span>
             <span className="text-muted-foreground">Created</span>
@@ -110,9 +110,9 @@ export function ContainerDetail({ containerId, onBack }: ContainerDetailProps) {
             <span className="text-muted-foreground">Status</span>
             <span>{detail.status}</span>
             <span className="text-muted-foreground">Entrypoint</span>
-            <span className="font-mono text-xs">{detail.entrypoint || "-"}</span>
+            <span className="font-mono text-xs truncate" title={detail.entrypoint || "-"}>{detail.entrypoint || "-"}</span>
             <span className="text-muted-foreground">Command</span>
-            <span className="font-mono text-xs">{detail.cmd || "-"}</span>
+            <span className="font-mono text-xs truncate" title={detail.cmd || "-"}>{detail.cmd || "-"}</span>
           </div>
         </section>
 
@@ -120,7 +120,7 @@ export function ContainerDetail({ containerId, onBack }: ContainerDetailProps) {
         {stats && (
           <section className="glass-section p-4">
             <h2 className="mb-3 text-sm font-semibold">Resource Usage</h2>
-            <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
+            <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-sm">
               <span className="text-muted-foreground">CPU</span>
               <span>{stats.cpu_percent}</span>
               <span className="text-muted-foreground">Memory</span>

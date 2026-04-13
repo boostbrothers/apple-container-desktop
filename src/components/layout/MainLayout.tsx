@@ -24,7 +24,7 @@ export function MainLayout() {
   return (
     <div className="relative z-10 flex h-screen">
       <Sidebar activePage={activePage} onPageChange={setActivePage} />
-      <main className="flex-1 overflow-auto p-4">
+      <main className="flex-1 min-w-0 overflow-auto p-4">
         {activePage === "containers" && <ContainerList />}
         {activePage === "images" && <ImageList />}
         {activePage === "volumes" && <VolumeList />}
