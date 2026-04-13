@@ -2,18 +2,29 @@
 
 [English](./README.md)
 
-[Colima](https://github.com/abiosoft/colima)를 위한 경량 데스크톱 GUI — Docker 컨테이너, 이미지, VM 자원을 네이티브 macOS 앱에서 관리할 수 있습니다.
+[Colima](https://github.com/abiosoft/colima)를 위한 경량 데스크톱 GUI — Docker 컨테이너, 이미지, 볼륨, 네트워크, VM 자원을 네이티브 macOS 앱에서 관리할 수 있습니다.
 
 **Tauri 2** (Rust) + **React 19** + **TypeScript** 기반으로 제작되었습니다.
 
 ## 주요 기능
 
-- **컨테이너 관리** — 컨테이너 조회, 시작, 중지, 재시작, 삭제 및 실시간 로그 스트리밍
+- **컨테이너 관리** — 컨테이너 조회, 시작, 중지, 재시작, 삭제 및 실시간 로그 스트리밍, 상세 통계(CPU, 메모리, 네트워크 I/O)
 - **Docker Compose 그룹핑** — Compose 프로젝트를 자동으로 묶어 아코디언 UI로 표시하고 일괄 액션 지원 (Start All / Stop All / Restart All / Remove All)
+- **프로젝트 관리** — Dockerfile, Docker Compose, DevContainer 프로젝트 타입을 지원하는 통합 프로젝트 프레임워크 (자동 감지)
+- **DevContainer 지원** — devcontainer.json 에디터 (일반 설정, 기능/확장, 포트 & 환경변수, 라이프사이클 훅, JSON 편집 탭)
 - **이미지 관리** — Docker 이미지 목록 조회, Pull, 삭제 및 Pull 진행 상태 표시
+- **볼륨 관리** — Docker 볼륨 목록 조회, 생성, 삭제 및 정리(prune) 지원
+- **네트워크 관리** — Docker 네트워크 목록 조회, 생성, 삭제 및 정리(prune) 지원
+- **컨테이너 도메인 (DNS + 리버스 프록시)** — 내장 DNS 서버(A + AAAA 레코드)와 Traefik 게이트웨이를 통한 자동 컨테이너 도메인 라우팅. 커스텀 도메인 접미사, 컨테이너별 호스트네임 오버라이드, macOS 리졸버 연동
+- **환경변수 관리** — 글로벌 및 프로젝트별 환경변수 프로파일, .env 파일 가져오기, Infisical 시크릿 매니저 연동, AES-GCM 암호화
 - **VM 자원 설정** — CPU, Memory, Disk, Runtime, Network Address를 슬라이더로 조정하고 한 번의 클릭으로 적용
+- **마운트 설정** — 파일 마운트 포인트, 마운트 타입, inotify 옵션 설정
+- **네트워크 설정** — DNS, 게이트웨이, 네트워크 모드, 포트 포워더 설정
+- **Docker 데몬 설정** — Insecure 레지스트리 및 레지스트리 미러 설정
 - **시스템 트레이** — 메뉴바에서 Colima Start / Stop / Restart 빠른 접근
 - **실시간 상태** — Colima VM 상태 표시기 (자동 갱신)
+- **온보딩** — Colima 설치 확인 및 사이드바 가이드가 포함된 안내 설정 플로우
+- **자동 업데이트** — GitHub Releases를 통한 자동 업데이트 (베타 채널 지원)
 - **Liquid Glass UI** — macOS 26+ 네이티브 Liquid Glass 효과 지원 (이전 버전은 vibrancy 폴백)
 
 ## 스크린샷
@@ -91,27 +102,36 @@ npm run tauri build
 | 테마 | [tauri-plugin-liquid-glass](https://github.com/hkandala/tauri-plugin-liquid-glass) |
 | 상태 관리 | TanStack React Query |
 | 아이콘 | Lucide React |
+| 암호화 | AES-GCM (Rust) |
 
 ## 아키텍처
 
 ```
 src/                    # React 프론트엔드
 ├── components/
-│   ├── containers/     # 컨테이너 목록, 행, Compose 그룹, 로그
+│   ├── containers/     # 컨테이너 목록, 행, Compose 그룹, 로그, 프로젝트 관리
 │   ├── images/         # 이미지 목록, 행, Pull 다이얼로그
-│   ├── settings/       # VM 자원 설정
+│   ├── volumes/        # 볼륨 목록, 행, 생성 다이얼로그
+│   ├── networks/       # 네트워크 목록, 행, 생성 다이얼로그
+│   ├── environment/    # 글로벌 환경변수 프로파일, 환경변수 테이블, Infisical 설정
+│   ├── env/            # 프로젝트별 환경변수 관리
+│   ├── devcontainer-config/  # DevContainer JSON 에디터 (일반, 기능, 포트, 라이프사이클)
+│   ├── settings/       # VM, 마운트, 네트워크, Docker, 도메인, 터미널, 외관, 업데이트 설정
+│   ├── onboarding/     # 안내 설정 플로우
 │   ├── layout/         # 사이드바, 메인 레이아웃
 │   └── ui/             # shadcn/ui 기본 컴포넌트
-├── hooks/              # React Query 훅
+├── hooks/              # React Query 훅 (19개)
 ├── lib/                # Tauri API 래퍼, 유틸리티
 └── types/              # TypeScript 타입 정의
 
 src-tauri/              # Rust 백엔드
 ├── src/
 │   ├── cli/            # CLI 실행기, 타입 정의
-│   ├── commands/       # Tauri 커맨드 핸들러
+│   ├── commands/       # Tauri 커맨드 핸들러 (98개 IPC 커맨드)
+│   ├── proxy/          # DNS 서버 (A + AAAA) + Traefik 게이트웨이 관리
+│   ├── crypto.rs       # AES-GCM 시크릿 암호화
 │   ├── tray.rs         # 시스템 트레이 메뉴
-│   └── lib.rs          # 앱 설정
+│   └── lib.rs          # 앱 설정 + 플러그인 등록
 ```
 
 앱은 CLI 서브프로세스 실행을 통해 Colima 및 Docker와 통신합니다. Rust 백엔드에서 `colima status`, `docker ps` 등의 명령을 실행하고, 구조화된 JSON을 Tauri IPC 브릿지를 통해 React 프론트엔드에 전달합니다.
