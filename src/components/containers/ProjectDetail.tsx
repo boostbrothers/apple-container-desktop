@@ -154,7 +154,7 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
   return (
     <div className="space-y-4">
       {/* Header — sticky */}
-      <div className="sticky top-0 z-20 -mx-4 -mt-4 px-4 pt-4 pb-3 border-b border-[var(--glass-border)] bg-background/90 backdrop-blur-xl [backdrop-filter:var(--glass-blur-heavy)] [-webkit-backdrop-filter:var(--glass-blur-heavy)]">
+      <div className="sticky -top-4 z-20 -mx-4 -mt-4 px-4 pt-4 pb-3 glass-panel border-b border-[var(--glass-border)]">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={onBack} className="h-8 w-8">
             <ArrowLeft className="h-4 w-4" />
