@@ -6,7 +6,33 @@ on:
       - 'v*'
 
 jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      is_prerelease: ${{ steps.check-tag.outputs.is_prerelease }}
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Check tag type
+        id: check-tag
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          if [[ "$TAG" =~ -(alpha|beta|rc) ]]; then
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Set build matrix
+        id: set-matrix
+        run: |
+          if [[ "${{ steps.check-tag.outputs.is_prerelease }}" == "true" ]]; then
+            # Pre-release: skip Windows (WiX MSI bundler rejects pre-release version identifiers)
+            echo 'matrix={"include":[{"platform":"macos-latest","args":"--target aarch64-apple-darwin"},{"platform":"macos-latest","args":"--target x86_64-apple-darwin"},{"platform":"ubuntu-22.04","args":""}]}' >> "$GITHUB_OUTPUT"
+          else
+            echo 'matrix={"include":[{"platform":"macos-latest","args":"--target aarch64-apple-darwin"},{"platform":"macos-latest","args":"--target x86_64-apple-darwin"},{"platform":"ubuntu-22.04","args":""},{"platform":"windows-latest","args":""}]}' >> "$GITHUB_OUTPUT"
+          fi
+
   create-release:
+    needs: prepare
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -19,32 +45,26 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
+            const isPrerelease = '${{ needs.prepare.outputs.is_prerelease }}' === 'true';
+            const tag = context.ref.replace('refs/tags/', '');
+            const suffix = isPrerelease ? ' (Pre-release)' : '';
             const { data } = await github.rest.repos.createRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              tag_name: context.ref.replace('refs/tags/', ''),
-              name: `Colima Desktop ${context.ref.replace('refs/tags/', '')}`,
+              tag_name: tag,
+              name: `Colima Desktop ${tag}${suffix}`,
               draft: true,
-              prerelease: false,
+              prerelease: isPrerelease,
             });
             core.setOutput('id', data.id);
 
   build-tauri:
-    needs: create-release
+    needs: [prepare, create-release]
     permissions:
       contents: write
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - platform: macos-latest
-            args: --target aarch64-apple-darwin
-          - platform: macos-latest
-            args: --target x86_64-apple-darwin
-          - platform: ubuntu-22.04
-            args: ''
-          - platform: windows-latest
-            args: ''
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -85,6 +105,20 @@ jobs:
           sed -i.bak "s/^version = \".*\"/version = \"${VERSION}\"/" src-tauri/Cargo.toml && rm src-tauri/Cargo.toml.bak
         shell: bash
 
+      - name: Configure beta updater endpoint
+        if: needs.prepare.outputs.is_prerelease == 'true'
+        run: |
+          node -e "
+            const fs = require('fs');
+            const config = JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json', 'utf8'));
+            config.plugins.updater.endpoints = [
+              'https://github.com/yoonhoGo/colima-desktop/releases/download/beta-latest/latest.json',
+              'https://github.com/yoonhoGo/colima-desktop/releases/latest/download/latest.json'
+            ];
+            fs.writeFileSync('src-tauri/tauri.conf.json', JSON.stringify(config, null, 2) + '\n');
+          "
+        shell: bash
+
       - name: Install frontend dependencies
         run: npm ci
 
@@ -114,3 +148,94 @@ jobs:
               release_id: ${{ needs.create-release.outputs.release_id }},
               draft: false,
             });
+
+  update-beta-updater:
+    if: needs.prepare.outputs.is_prerelease == 'true'
+    needs: [prepare, publish-release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Update beta updater endpoint
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const tag = context.ref.replace('refs/tags/', '');
+
+            // Get latest.json from the published release
+            const { data: release } = await github.rest.repos.getReleaseByTag({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag,
+            });
+
+            const latestJsonAsset = release.assets.find(a => a.name === 'latest.json');
+            if (!latestJsonAsset) {
+              core.setFailed('latest.json not found in release assets');
+              return;
+            }
+
+            // Download latest.json content
+            const { data: assetData } = await github.request(
+              `GET /repos/{owner}/{repo}/releases/assets/{asset_id}`,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                asset_id: latestJsonAsset.id,
+                headers: { Accept: 'application/octet-stream' },
+              }
+            );
+            const content = Buffer.from(assetData);
+
+            // Find or create beta-latest release
+            let betaRelease;
+            try {
+              const { data } = await github.rest.repos.getReleaseByTag({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag: 'beta-latest',
+              });
+              betaRelease = data;
+
+              // Remove existing latest.json asset
+              for (const asset of betaRelease.assets) {
+                if (asset.name === 'latest.json') {
+                  await github.rest.repos.deleteReleaseAsset({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    asset_id: asset.id,
+                  });
+                }
+              }
+
+              // Update release description
+              await github.rest.repos.updateRelease({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: betaRelease.id,
+                body: `Auto-updater endpoint for beta channel.\nCurrently pointing to: **${tag}**\n\n> Do not delete this release.`,
+              });
+            } catch {
+              // Create beta-latest release
+              const { data } = await github.rest.repos.createRelease({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag_name: 'beta-latest',
+                name: 'Beta Auto-Updater',
+                body: `Auto-updater endpoint for beta channel.\nCurrently pointing to: **${tag}**\n\n> Do not delete this release.`,
+                draft: false,
+                prerelease: true,
+              });
+              betaRelease = data;
+            }
+
+            // Upload latest.json to beta-latest release
+            await github.rest.repos.uploadReleaseAsset({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: betaRelease.id,
+              name: 'latest.json',
+              data: content,
+            });
+
+            core.info(`Beta updater endpoint updated to ${tag}`);

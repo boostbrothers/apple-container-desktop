@@ -4,6 +4,7 @@ set -eu
 REPO="yoonhoGo/colima-desktop"
 APP_NAME="Colima Desktop"
 INSTALL_DIR="/Applications"
+CHANNEL="stable"
 
 # Colors
 RED='\033[0;31m'
@@ -14,6 +15,23 @@ NC='\033[0m'
 info() { printf "${GREEN}[info]${NC} %s\n" "$1"; }
 warn() { printf "${YELLOW}[warn]${NC} %s\n" "$1"; }
 error() { printf "${RED}[error]${NC} %s\n" "$1"; exit 1; }
+
+# Parse arguments
+parse_args() {
+    for arg in "$@"; do
+        case "$arg" in
+            --beta)  CHANNEL="beta" ;;
+            --help|-h)
+                echo "Usage: install.sh [--beta]"
+                echo ""
+                echo "Options:"
+                echo "  --beta    Install the latest pre-release (beta) version"
+                echo "  --help    Show this help message"
+                exit 0
+                ;;
+        esac
+    done
+}
 
 # Detect OS and architecture
 detect_platform() {
@@ -35,16 +53,34 @@ detect_platform() {
 
 # Get latest release version
 get_latest_version() {
-    VERSION=$(curl -sI "https://github.com/${REPO}/releases/latest" \
-        | grep -i "^location:" \
-        | sed 's/.*\/v//' \
-        | tr -d '\r\n')
+    if [ "$CHANNEL" = "beta" ]; then
+        # Find the latest pre-release from the releases API
+        VERSION=$(curl -sL "https://api.github.com/repos/${REPO}/releases" \
+            | grep -E '"tag_name":|"prerelease":' \
+            | paste - - \
+            | grep '"prerelease": true' \
+            | head -1 \
+            | sed 's/.*"tag_name": "v\([^"]*\)".*/\1/')
 
-    if [ -z "$VERSION" ]; then
-        error "Failed to determine latest version"
+        if [ -z "$VERSION" ]; then
+            error "No beta release found"
+        fi
+
+        RELEASE_API_URL="https://api.github.com/repos/${REPO}/releases/tags/v${VERSION}"
+        info "Latest beta version: v${VERSION}"
+    else
+        VERSION=$(curl -sI "https://github.com/${REPO}/releases/latest" \
+            | grep -i "^location:" \
+            | sed 's/.*\/v//' \
+            | tr -d '\r\n')
+
+        if [ -z "$VERSION" ]; then
+            error "Failed to determine latest version"
+        fi
+
+        RELEASE_API_URL="https://api.github.com/repos/${REPO}/releases/latest"
+        info "Latest version: v${VERSION}"
     fi
-
-    info "Latest version: v${VERSION}"
 }
 
 # Map architecture to Tauri asset naming
@@ -58,7 +94,7 @@ map_arch_macos() {
 # Find asset URL by pattern from GitHub API
 find_asset_url() {
     PATTERN="$1"
-    ASSET_URL=$(curl -sL "https://api.github.com/repos/${REPO}/releases/latest" \
+    ASSET_URL=$(curl -sL "$RELEASE_API_URL" \
         | grep "browser_download_url" \
         | grep "$PATTERN" \
         | head -1 \
@@ -141,7 +177,13 @@ install_linux() {
 
 # Main
 main() {
-    printf "\n  ${GREEN}Colima Desktop Installer${NC}\n\n"
+    parse_args "$@"
+
+    if [ "$CHANNEL" = "beta" ]; then
+        printf "\n  ${YELLOW}Colima Desktop Installer (Beta)${NC}\n\n"
+    else
+        printf "\n  ${GREEN}Colima Desktop Installer${NC}\n\n"
+    fi
 
     detect_platform
     get_latest_version
@@ -152,4 +194,4 @@ main() {
     esac
 }
 
-main
+main "$@"
