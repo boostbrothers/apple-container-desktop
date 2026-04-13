@@ -11,11 +11,11 @@ import { DockerSettingsPanel } from "../settings/DockerSettingsPanel";
 import { UpdatePanel } from "../settings/UpdatePanel";
 import { AppearanceSettings } from "../settings/AppearanceSettings";
 import { TerminalSettings } from "../settings/TerminalSettings";
-import { MdnsSettings } from "../settings/MdnsSettings";
+import { ContainerDomainsSettings } from "../settings/ContainerDomainsSettings";
 import { EnvironmentPage } from "../environment/EnvironmentPage";
 
 type Page = "containers" | "images" | "volumes" | "networks" | "environment" | "settings";
-type SettingsTab = "vm" | "mounts" | "network" | "docker" | "mdns" | "terminal" | "update" | "appearance";
+type SettingsTab = "vm" | "mounts" | "network" | "docker" | "domains" | "terminal" | "update" | "appearance";
 
 export function MainLayout() {
   const [activePage, setActivePage] = useState<Page>("containers");
@@ -74,14 +74,14 @@ export function MainLayout() {
                 Docker
               </button>
               <button
-                onClick={() => setSettingsTab("mdns")}
+                onClick={() => setSettingsTab("domains")}
                 className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium transition-all ${
-                  settingsTab === "mdns"
+                  settingsTab === "domains"
                     ? "bg-[var(--glass-bg-active)] text-foreground shadow-sm border border-[var(--glass-border-strong)]"
                     : "text-muted-foreground hover:text-foreground border border-transparent"
                 }`}
               >
-                mDNS
+                Domains
               </button>
               <button
                 onClick={() => setSettingsTab("terminal")}
@@ -118,7 +118,7 @@ export function MainLayout() {
             {settingsTab === "mounts" && <MountSettings />}
             {settingsTab === "network" && <NetworkSettingsPanel />}
             {settingsTab === "docker" && <DockerSettingsPanel />}
-            {settingsTab === "mdns" && <MdnsSettings />}
+            {settingsTab === "domains" && <ContainerDomainsSettings />}
             {settingsTab === "terminal" && <TerminalSettings />}
             {settingsTab === "update" && <UpdatePanel />}
             {settingsTab === "appearance" && <AppearanceSettings />}
