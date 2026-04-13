@@ -93,9 +93,9 @@ export function EnvVarTable({ projectId, envVars, activeProfile }: EnvVarTablePr
   };
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-1 min-w-0 overflow-hidden">
       {profileVars.length > 0 && (
-        <div className="space-y-1 max-h-64 overflow-y-auto">
+        <div className="space-y-1 max-h-64 overflow-y-auto overflow-x-hidden">
           {profileVars.map((v) => (
             <div
               key={v.key}
@@ -198,7 +198,7 @@ export function EnvVarTable({ projectId, envVars, activeProfile }: EnvVarTablePr
       )}
 
       {/* Add new env var */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 min-w-0">
         <Input
           placeholder="KEY"
           value={newKey}
