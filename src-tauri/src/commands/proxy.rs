@@ -114,18 +114,22 @@ pub async fn domain_sync(
 
 // ─── Start / Stop ───────────────────────────────────────────────────────────
 
-#[tauri::command]
-pub async fn proxy_start(state: State<'_, ProxyState>) -> Result<(), String> {
-    let mut running = state.running.lock().await;
-    if *running {
+/// Start DNS server + Traefik gateway. Shared by proxy_start command and auto-start.
+pub async fn start_proxy_services(
+    dns_table: DnsTable,
+    dns_shutdown: Arc<Notify>,
+    running: Arc<Mutex<bool>>,
+) -> Result<(), String> {
+    let mut running_guard = running.lock().await;
+    if *running_guard {
         return Ok(());
     }
 
     // Start DNS server
-    let dns_table = Arc::clone(&state.dns_table);
-    let dns_shutdown = Arc::clone(&state.dns_shutdown);
+    let dt = Arc::clone(&dns_table);
+    let ds = Arc::clone(&dns_shutdown);
     tokio::spawn(async move {
-        let server = DnsServer::with_shared(DNS_PORT, dns_table, dns_shutdown);
+        let server = DnsServer::with_shared(DNS_PORT, dt, ds);
         if let Err(e) = server.run().await {
             eprintln!("DNS server error: {}", e);
         }
@@ -134,8 +138,18 @@ pub async fn proxy_start(state: State<'_, ProxyState>) -> Result<(), String> {
     // Start Traefik gateway container
     gateway::start_gateway().await?;
 
-    *running = true;
+    *running_guard = true;
     Ok(())
+}
+
+#[tauri::command]
+pub async fn proxy_start(state: State<'_, ProxyState>) -> Result<(), String> {
+    start_proxy_services(
+        Arc::clone(&state.dns_table),
+        Arc::clone(&state.dns_shutdown),
+        Arc::clone(&state.running),
+    )
+    .await
 }
 
 #[tauri::command]

@@ -25,7 +25,7 @@ fn default_true() -> bool {
 impl Default for DomainConfig {
     fn default() -> Self {
         DomainConfig {
-            enabled: false,
+            enabled: true,
             auto_register: true,
             domain_suffix: default_domain_suffix(),
             container_overrides: HashMap::new(),

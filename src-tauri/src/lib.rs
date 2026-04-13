@@ -4,6 +4,9 @@ pub mod crypto;
 pub mod proxy;
 mod tray;
 
+use std::sync::Arc;
+use tauri::Manager;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -114,6 +117,20 @@ pub fn run() {
         ])
         .setup(|app| {
             tray::create_tray(app)?;
+
+            // Auto-start DNS + Gateway
+            let state = app.state::<commands::proxy::ProxyState>();
+            let dns_table = Arc::clone(&state.dns_table);
+            let dns_shutdown = Arc::clone(&state.dns_shutdown);
+            let running = Arc::clone(&state.running);
+            tauri::async_runtime::spawn(async move {
+                if let Err(e) =
+                    commands::proxy::start_proxy_services(dns_table, dns_shutdown, running).await
+                {
+                    eprintln!("Auto-start proxy failed: {}", e);
+                }
+            });
+
             Ok(())
         })
         .on_window_event(|window, event| {

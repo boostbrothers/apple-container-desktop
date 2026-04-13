@@ -45,6 +45,34 @@ async fn test_dns_server() {
     assert_eq!(ip_bytes2, &[172, 17, 0, 5]);
     println!("DNS: echo.colima.local → 172.17.0.5 ✓");
 
+    // Query AAAA dd-auth.colima.local → should return ::1
+    let query_aaaa = build_dns_query_with_type("dd-auth.colima.local", 28);
+    socket
+        .send_to(&query_aaaa, "127.0.0.1:15553")
+        .await
+        .unwrap();
+    let (len_aaaa, _) = socket.recv_from(&mut buf).await.unwrap();
+    let resp_aaaa = &buf[..len_aaaa];
+    let ancount_aaaa = u16::from_be_bytes([resp_aaaa[6], resp_aaaa[7]]);
+    assert!(ancount_aaaa > 0, "AAAA query should return an answer");
+    // Last 16 bytes should be ::1
+    let ipv6_bytes = &buf[len_aaaa - 16..len_aaaa];
+    let mut expected_ipv6 = [0u8; 16];
+    expected_ipv6[15] = 1;
+    assert_eq!(ipv6_bytes, &expected_ipv6, "AAAA should return ::1");
+    println!("DNS: dd-auth.colima.local AAAA → ::1 ✓");
+
+    // Query AAAA unknown.colima.local → NXDOMAIN
+    let query_aaaa_nx = build_dns_query_with_type("unknown.colima.local", 28);
+    socket
+        .send_to(&query_aaaa_nx, "127.0.0.1:15553")
+        .await
+        .unwrap();
+    let (_len_nx, _) = socket.recv_from(&mut buf).await.unwrap();
+    let rcode_aaaa = buf[3] & 0x0F;
+    assert_eq!(rcode_aaaa, 3, "Unknown AAAA should return NXDOMAIN");
+    println!("DNS: unknown.colima.local AAAA → NXDOMAIN ✓");
+
     // Query unknown.colima.local → NXDOMAIN
     let query3 = build_dns_query("unknown.colima.local");
     socket.send_to(&query3, "127.0.0.1:15553").await.unwrap();
@@ -57,19 +85,23 @@ async fn test_dns_server() {
 }
 
 fn build_dns_query(name: &str) -> Vec<u8> {
+    build_dns_query_with_type(name, 1) // Type A
+}
+
+fn build_dns_query_with_type(name: &str, qtype: u16) -> Vec<u8> {
     let mut packet = Vec::new();
-    packet.extend_from_slice(&[0xAA, 0xBB]);
-    packet.extend_from_slice(&[0x01, 0x00]);
-    packet.extend_from_slice(&[0x00, 0x01]);
-    packet.extend_from_slice(&[0x00, 0x00]);
-    packet.extend_from_slice(&[0x00, 0x00]);
-    packet.extend_from_slice(&[0x00, 0x00]);
+    packet.extend_from_slice(&[0xAA, 0xBB]); // Transaction ID
+    packet.extend_from_slice(&[0x01, 0x00]); // Flags: standard query
+    packet.extend_from_slice(&[0x00, 0x01]); // QDCOUNT=1
+    packet.extend_from_slice(&[0x00, 0x00]); // ANCOUNT=0
+    packet.extend_from_slice(&[0x00, 0x00]); // NSCOUNT=0
+    packet.extend_from_slice(&[0x00, 0x00]); // ARCOUNT=0
     for label in name.split('.') {
         packet.push(label.len() as u8);
         packet.extend_from_slice(label.as_bytes());
     }
-    packet.push(0x00);
-    packet.extend_from_slice(&[0x00, 0x01]);
-    packet.extend_from_slice(&[0x00, 0x01]);
+    packet.push(0x00); // Root label
+    packet.extend_from_slice(&qtype.to_be_bytes()); // QTYPE
+    packet.extend_from_slice(&[0x00, 0x01]); // QCLASS=IN
     packet
 }
