@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { X, Globe, ExternalLink, Copy } from "lucide-react";
@@ -149,7 +150,7 @@ export function ContainerDomainDialog({
                     variant="ghost"
                     size="icon"
                     className="h-6 w-6"
-                    onClick={() => window.open(url, "_blank")}
+                    onClick={() => openUrl(url)}
                     title="Open in browser"
                   >
                     <ExternalLink className="h-3 w-3" />
