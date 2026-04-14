@@ -9,7 +9,7 @@ pub mod image;
 pub mod mounts;
 pub mod network;
 pub mod network_settings;
-pub mod vm_settings;
+pub mod resource_settings;
 pub mod project_config;
 pub mod onboarding;
 pub mod update;
