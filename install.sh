@@ -1,8 +1,8 @@
 #!/bin/sh
 set -eu
 
-REPO="yoonhoGo/colima-desktop"
-APP_NAME="Colima Desktop"
+REPO="boostbrothers/apple-container-desktop"
+APP_NAME="Apple Container Desktop"
 INSTALL_DIR="/Applications"
 CHANNEL="stable"
 
@@ -166,11 +166,11 @@ install_linux() {
         LOCAL_BIN="${HOME}/.local/bin"
         mkdir -p "$LOCAL_BIN"
 
-        curl -#fSL "$APPIMAGE_URL" -o "${LOCAL_BIN}/colima-desktop" || error "Download failed"
-        chmod +x "${LOCAL_BIN}/colima-desktop"
+        curl -#fSL "$APPIMAGE_URL" -o "${LOCAL_BIN}/apple-container-desktop" || error "Download failed"
+        chmod +x "${LOCAL_BIN}/apple-container-desktop"
 
         printf "\n${GREEN}%s installed successfully!${NC}\n" "$APP_NAME"
-        echo "  Run: colima-desktop"
+        echo "  Run: apple-container-desktop"
         echo "  (Make sure ${LOCAL_BIN} is in your PATH)"
     fi
 }
@@ -180,9 +180,9 @@ main() {
     parse_args "$@"
 
     if [ "$CHANNEL" = "beta" ]; then
-        printf "\n  ${YELLOW}Colima Desktop Installer (Beta)${NC}\n\n"
+        printf "\n  ${YELLOW}Apple Container Desktop Installer (Beta)${NC}\n\n"
     else
-        printf "\n  ${GREEN}Colima Desktop Installer${NC}\n\n"
+        printf "\n  ${GREEN}Apple Container Desktop Installer${NC}\n\n"
     fi
 
     detect_platform

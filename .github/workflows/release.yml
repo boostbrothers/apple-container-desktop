@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 jobs:
   prepare:
@@ -52,7 +52,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               tag_name: tag,
-              name: `Colima Desktop ${tag}${suffix}`,
+              name: `Apple Container Desktop ${tag}${suffix}`,
               draft: true,
               prerelease: isPrerelease,
             });
@@ -90,7 +90,7 @@ jobs:
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: './src-tauri -> target'
+          workspaces: "./src-tauri -> target"
           key: ${{ matrix.platform }}-${{ matrix.args }}
 
       - name: Sync version from git tag
@@ -112,8 +112,8 @@ jobs:
             const fs = require('fs');
             const config = JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json', 'utf8'));
             config.plugins.updater.endpoints = [
-              'https://github.com/yoonhoGo/colima-desktop/releases/download/beta-latest/latest.json',
-              'https://github.com/yoonhoGo/colima-desktop/releases/latest/download/latest.json'
+              'https://github.com/boostbrothers/apple-container-desktop/releases/download/beta-latest/latest.json',
+              'https://github.com/boostbrothers/apple-container-desktop/releases/latest/download/latest.json'
             ];
             fs.writeFileSync('src-tauri/tauri.conf.json', JSON.stringify(config, null, 2) + '\n');
           "
