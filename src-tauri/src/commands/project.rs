@@ -417,9 +417,14 @@ pub async fn add_project(
 }
 
 #[tauri::command]
-pub async fn update_project(project: Project) -> Result<(), String> {
+pub async fn update_project(mut project: Project) -> Result<(), String> {
     let mut projects = load_projects()?;
     if let Some(existing) = projects.iter_mut().find(|p| p.id == project.id) {
+        // Preserve env_vars from disk – the frontend receives masked secrets
+        // ("••••••••") via list_projects, so blindly overwriting would corrupt
+        // the real values.  Env vars are managed by dedicated commands
+        // (set_env_var, remove_env_var, bulk_import_env, etc.).
+        project.env_vars = existing.env_vars.clone();
         *existing = project;
     } else {
         return Err("Project not found".to_string());
