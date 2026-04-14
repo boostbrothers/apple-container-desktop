@@ -1,10 +1,10 @@
-use crate::cli::executor::{docker_cmd, CliExecutor};
-use crate::cli::types::{DockerNetworkEntry, Network};
+use crate::cli::executor::{container_cmd, CliExecutor};
+use crate::cli::types::{NetworkListEntry, Network};
 
 #[tauri::command]
 pub async fn list_networks() -> Result<Vec<Network>, String> {
-    let entries: Vec<DockerNetworkEntry> =
-        CliExecutor::run_json_lines(docker_cmd(), &["network", "ls", "--format", "json"]).await?;
+    let entries: Vec<NetworkListEntry> =
+        CliExecutor::run_json_lines(container_cmd(), &["network", "list", "--format", "json"]).await?;
     Ok(entries.into_iter().map(Network::from).collect())
 }
 
@@ -20,16 +20,16 @@ pub async fn create_network(name: String, driver: Option<String>) -> Result<Stri
         }
     }
     args.push(&name);
-    CliExecutor::run(docker_cmd(), &args).await
+    CliExecutor::run(container_cmd(), &args).await
 }
 
 #[tauri::command]
 pub async fn remove_network(id: String) -> Result<(), String> {
-    CliExecutor::run(docker_cmd(), &["network", "rm", &id]).await?;
+    CliExecutor::run(container_cmd(), &["network", "delete", &id]).await?;
     Ok(())
 }
 
 #[tauri::command]
 pub async fn prune_networks() -> Result<String, String> {
-    CliExecutor::run(docker_cmd(), &["network", "prune", "-f"]).await
+    CliExecutor::run(container_cmd(), &["network", "prune"]).await
 }
