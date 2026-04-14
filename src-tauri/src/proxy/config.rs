@@ -15,7 +15,7 @@ pub struct DomainConfig {
 }
 
 fn default_domain_suffix() -> String {
-    "colima.local".to_string()
+    "container.local".to_string()
 }
 
 fn default_true() -> bool {
@@ -34,20 +34,12 @@ impl Default for DomainConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct PortRoute {
-    pub host_port: u16,
-    pub container_port: u16,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ContainerDomainOverride {
     pub enabled: bool,
     #[serde(default)]
     pub hostname: Option<String>,
     #[serde(default)]
     pub port: Option<u16>,
-    #[serde(default)]
-    pub port_routes: Vec<PortRoute>,
 }
 
 pub async fn load_config(config_path: &PathBuf) -> DomainConfig {
