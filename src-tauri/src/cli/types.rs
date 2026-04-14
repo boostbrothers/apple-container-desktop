@@ -1,18 +1,29 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct DockerPsEntry {
-    #[serde(rename = "ID")]
+#[serde(default)]
+pub struct ContainerListEntry {
     pub id: String,
-    pub names: String,
+    pub name: String,
     pub image: String,
     pub state: String,
     pub status: String,
     pub ports: String,
     pub created_at: String,
-    #[serde(default)]
-    pub labels: String,
+}
+
+impl Default for ContainerListEntry {
+    fn default() -> Self {
+        ContainerListEntry {
+            id: String::new(),
+            name: String::new(),
+            image: String::new(),
+            state: String::new(),
+            status: String::new(),
+            ports: String::new(),
+            created_at: String::new(),
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -24,49 +35,42 @@ pub struct Container {
     pub status: String,
     pub ports: String,
     pub created_at: String,
-    pub compose_project: Option<String>,
-    pub compose_service: Option<String>,
 }
 
-impl From<DockerPsEntry> for Container {
-    fn from(entry: DockerPsEntry) -> Self {
-        let mut compose_project = None;
-        let mut compose_service = None;
-
-        for part in entry.labels.split(',') {
-            let part = part.trim();
-            if let Some(val) = part.strip_prefix("com.docker.compose.project=") {
-                compose_project = Some(val.to_string());
-            } else if let Some(val) = part.strip_prefix("com.docker.compose.service=") {
-                compose_service = Some(val.to_string());
-            }
-        }
-
+impl From<ContainerListEntry> for Container {
+    fn from(entry: ContainerListEntry) -> Self {
         Container {
             id: entry.id,
-            name: entry.names,
+            name: entry.name,
             image: entry.image,
             state: entry.state,
             status: entry.status,
             ports: entry.ports,
             created_at: entry.created_at,
-            compose_project,
-            compose_service,
         }
     }
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct DockerImageEntry {
-    #[serde(rename = "ID")]
+#[serde(default)]
+pub struct ImageListEntry {
     pub id: String,
     pub repository: String,
     pub tag: String,
     pub size: String,
     pub created_at: String,
-    #[serde(default)]
-    pub containers: String,
+}
+
+impl Default for ImageListEntry {
+    fn default() -> Self {
+        ImageListEntry {
+            id: String::new(),
+            repository: String::new(),
+            tag: String::new(),
+            size: String::new(),
+            created_at: String::new(),
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -79,75 +83,40 @@ pub struct Image {
     pub in_use: bool,
 }
 
-impl From<DockerImageEntry> for Image {
-    fn from(entry: DockerImageEntry) -> Self {
-        let in_use = entry.containers.parse::<u32>().unwrap_or(0) > 0;
+impl From<ImageListEntry> for Image {
+    fn from(entry: ImageListEntry) -> Self {
         Image {
             id: entry.id,
             repository: entry.repository,
             tag: entry.tag,
             size: entry.size,
             created_at: entry.created_at,
-            in_use,
+            in_use: false,
         }
     }
 }
 
-#[derive(Debug, Deserialize)]
-pub struct ColimaStatusRaw {
-    pub display_name: String,
-    pub arch: String,
-    pub runtime: String,
-    pub cpu: u32,
-    pub memory: u64,
-    pub disk: u64,
-    #[serde(default)]
-    pub kubernetes: bool,
-}
-
 #[derive(Debug, Serialize, Clone)]
-pub struct ColimaStatus {
+pub struct SystemStatus {
     pub running: bool,
-    pub runtime: String,
-    pub arch: String,
-    pub cpus: u32,
-    pub memory_gib: f64,
-    pub disk_gib: f64,
+    pub version: String,
 }
 
-impl ColimaStatusRaw {
-    pub fn into_status(self) -> ColimaStatus {
-        ColimaStatus {
-            running: true,
-            runtime: self.runtime,
-            arch: self.arch,
-            cpus: self.cpu,
-            memory_gib: self.memory as f64 / 1_073_741_824.0,
-            disk_gib: self.disk as f64 / 1_073_741_824.0,
-        }
-    }
-}
-
-impl ColimaStatus {
+impl SystemStatus {
     pub fn stopped() -> Self {
-        ColimaStatus {
+        SystemStatus {
             running: false,
-            runtime: String::new(),
-            arch: String::new(),
-            cpus: 0,
-            memory_gib: 0.0,
-            disk_gib: 0.0,
+            version: String::new(),
         }
     }
 }
 
 #[derive(Debug, Serialize, Clone)]
-pub struct VmSettings {
-    pub cpus: u32,
-    pub memory_gib: f64,
-    pub disk_gib: f64,
-    pub runtime: String,
-    pub network_address: String,
+pub struct ResourceSettings {
+    pub container_cpus: String,
+    pub container_memory: String,
+    pub build_cpus: String,
+    pub build_memory: String,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -158,7 +127,7 @@ pub struct HostInfo {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "PascalCase")]
-pub struct DockerVolumeEntry {
+pub struct VolumeListEntry {
     pub name: String,
     pub driver: String,
     pub scope: String,
@@ -179,8 +148,8 @@ pub struct Volume {
     pub size: String,
 }
 
-impl From<DockerVolumeEntry> for Volume {
-    fn from(entry: DockerVolumeEntry) -> Self {
+impl From<VolumeListEntry> for Volume {
+    fn from(entry: VolumeListEntry) -> Self {
         Volume {
             name: entry.name,
             driver: entry.driver,
@@ -194,7 +163,7 @@ impl From<DockerVolumeEntry> for Volume {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "PascalCase")]
-pub struct DockerNetworkEntry {
+pub struct NetworkListEntry {
     #[serde(rename = "ID")]
     pub id: String,
     pub name: String,
@@ -220,8 +189,8 @@ pub struct Network {
     pub labels: String,
 }
 
-impl From<DockerNetworkEntry> for Network {
-    fn from(entry: DockerNetworkEntry) -> Self {
+impl From<NetworkListEntry> for Network {
+    fn from(entry: NetworkListEntry) -> Self {
         Network {
             id: entry.id,
             name: entry.name,
@@ -232,17 +201,6 @@ impl From<DockerNetworkEntry> for Network {
             labels: entry.labels,
         }
     }
-}
-
-#[derive(Debug, Deserialize)]
-pub struct ColimaListEntry {
-    pub cpus: u32,
-    pub memory: u64,
-    pub disk: u64,
-    pub runtime: String,
-    #[serde(default)]
-    pub network_address: String,
-    pub status: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -260,29 +218,10 @@ pub struct MountSettings {
 }
 
 #[derive(Debug, Serialize, Clone)]
-pub struct ColimaVersion {
-    pub version: String,
-    pub git_commit: String,
-    pub runtime_versions: Vec<RuntimeVersion>,
-}
-
-#[derive(Debug, Serialize, Clone)]
-pub struct RuntimeVersion {
-    pub name: String,
-    pub version: String,
-}
-
-#[derive(Debug, Serialize, Clone)]
 pub struct VersionCheck {
     pub current: String,
     pub latest: String,
     pub update_available: bool,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct DockerDaemonSettings {
-    pub insecure_registries: Vec<String>,
-    pub registry_mirrors: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -449,23 +388,17 @@ pub struct Project {
     pub id: String,
     pub name: String,
     pub workspace_path: String,
-    pub project_type: String, // "dockerfile" | "compose" | "devcontainer"
+    pub project_type: String, // "dockerfile" | "devcontainer"
     #[serde(default)]
     pub env_vars: Vec<EnvVarEntry>,
     #[serde(default)]
     pub dotenv_path: Option<String>,
     #[serde(default)]
-    pub watch_mode: bool,
-    #[serde(default)]
     pub remote_debug: bool,
     #[serde(default = "default_debug_port")]
     pub debug_port: u16,
     #[serde(default)]
-    pub compose_file: Option<String>,
-    #[serde(default)]
     pub dockerfile: Option<String>,
-    #[serde(default)]
-    pub service_name: Option<String>,
     #[serde(default)]
     pub env_command: Option<String>,
     #[serde(default)]
@@ -500,12 +433,9 @@ pub struct ProjectWithStatus {
     pub project_type: String,
     pub env_vars: Vec<EnvVarEntry>,
     pub dotenv_path: Option<String>,
-    pub watch_mode: bool,
     pub remote_debug: bool,
     pub debug_port: u16,
-    pub compose_file: Option<String>,
     pub dockerfile: Option<String>,
-    pub service_name: Option<String>,
     pub env_command: Option<String>,
     pub ports: Vec<String>,
     pub startup_command: Option<String>,
@@ -527,12 +457,9 @@ impl Project {
             project_type: self.project_type,
             env_vars: self.env_vars,
             dotenv_path: self.dotenv_path,
-            watch_mode: self.watch_mode,
             remote_debug: self.remote_debug,
             debug_port: self.debug_port,
-            compose_file: self.compose_file,
             dockerfile: self.dockerfile,
-            service_name: self.service_name,
             env_command: self.env_command,
             ports: self.ports,
             startup_command: self.startup_command,
@@ -584,9 +511,6 @@ impl Default for AppSettings {
 #[derive(Debug, Serialize, Clone)]
 pub struct ProjectTypeDetection {
     pub has_dockerfile: bool,
-    pub has_compose: bool,
-    pub has_devcontainer: bool,
-    pub compose_files: Vec<String>,
     pub dockerfiles: Vec<String>,
     pub dotenv_files: Vec<String>,
 }
