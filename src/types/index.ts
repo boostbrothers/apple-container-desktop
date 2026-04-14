@@ -166,6 +166,13 @@ export interface ProjectEnvBinding {
   excluded_keys: string[];
 }
 
+export interface VolumeMount {
+  mount_type: "bind" | "volume";
+  source: string;
+  target: string;
+  readonly: boolean;
+}
+
 export type ProjectType = "dockerfile";
 
 export interface Project {
@@ -186,6 +193,11 @@ export interface Project {
   infisical_config: InfisicalConfig | null;
   env_binding: ProjectEnvBinding;
   domain: string | null;
+  image: string | null;
+  network: string | null;
+  init_commands: string[];
+  volumes: VolumeMount[];
+  watch_mode: boolean;
   status: "running" | "stopped" | "not_created" | "path_missing" | "unknown";
   container_ids: string[];
 }

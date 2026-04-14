@@ -253,6 +253,16 @@ pub struct ContainerStats {
     pub pids: String,
 }
 
+// Volume mount for project containers
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct VolumeMount {
+    pub mount_type: String, // "bind" | "volume"
+    pub source: String,
+    pub target: String,
+    #[serde(default)]
+    pub readonly: bool,
+}
+
 // Project Execution types
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -377,6 +387,16 @@ pub struct Project {
     pub env_binding: ProjectEnvBinding,
     #[serde(default)]
     pub domain: Option<String>,
+    #[serde(default)]
+    pub image: Option<String>,
+    #[serde(default)]
+    pub network: Option<String>,
+    #[serde(default)]
+    pub init_commands: Vec<String>,
+    #[serde(default)]
+    pub volumes: Vec<VolumeMount>,
+    #[serde(default = "default_true")]
+    pub watch_mode: bool,
 }
 
 fn default_debug_port() -> u16 {
@@ -406,6 +426,11 @@ pub struct ProjectWithStatus {
     pub infisical_config: Option<InfisicalConfig>,
     pub env_binding: ProjectEnvBinding,
     pub domain: Option<String>,
+    pub image: Option<String>,
+    pub network: Option<String>,
+    pub init_commands: Vec<String>,
+    pub volumes: Vec<VolumeMount>,
+    pub watch_mode: bool,
     pub status: String,
     pub container_ids: Vec<String>,
 }
@@ -430,6 +455,11 @@ impl Project {
             infisical_config: self.infisical_config,
             env_binding: self.env_binding,
             domain: self.domain,
+            image: self.image,
+            network: self.network,
+            init_commands: self.init_commands,
+            volumes: self.volumes,
+            watch_mode: self.watch_mode,
             status,
             container_ids,
         }

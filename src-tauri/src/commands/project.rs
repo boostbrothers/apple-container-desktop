@@ -276,6 +276,11 @@ pub async fn add_project(
         infisical_config: None,
         env_binding: ProjectEnvBinding::default(),
         domain: None,
+        image: None,
+        network: None,
+        init_commands: Vec::new(),
+        volumes: Vec::new(),
+        watch_mode: true,
     };
 
     projects.push(project.clone());
@@ -447,49 +452,104 @@ pub async fn project_up(app: AppHandle, id: String) -> Result<(), String> {
     Ok(())
 }
 
+async fn run_init_commands(
+    app: &AppHandle,
+    project: &Project,
+    event_name: &str,
+) -> Result<(), String> {
+    for (i, cmd) in project.init_commands.iter().enumerate() {
+        let cmd = cmd.trim();
+        if cmd.is_empty() {
+            continue;
+        }
+        let _ = app.emit(
+            event_name,
+            format!("Running init command [{}/{}]: {}", i + 1, project.init_commands.len(), cmd),
+        );
+
+        let mut child = Command::new("sh")
+            .args(["-c", cmd])
+            .current_dir(&project.workspace_path)
+            .env("PATH", &*EXTENDED_PATH)
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .map_err(|e| format!("Failed to run init command '{}': {}", cmd, e))?;
+
+        stream_child_output(app, &mut child, event_name).await?;
+
+        let status = child
+            .wait()
+            .await
+            .map_err(|e| format!("Failed to wait for init command: {}", e))?;
+
+        if !status.success() {
+            let _ = app.emit(event_name, format!("Init command failed: {}", cmd));
+            let _ = app.emit(event_name, "[done]");
+            return Err(format!("Init command failed: {}", cmd));
+        }
+    }
+    Ok(())
+}
+
+fn build_volume_args(project: &Project) -> Vec<String> {
+    let mut args = Vec::new();
+
+    // Watch mode: mount workspace → /app
+    if project.watch_mode {
+        args.push("-v".to_string());
+        args.push(format!("{}:/app", project.workspace_path));
+        args.push("-w".to_string());
+        args.push("/app".to_string());
+    }
+
+    // Additional volume mounts
+    for vol in &project.volumes {
+        if vol.source.trim().is_empty() || vol.target.trim().is_empty() {
+            continue;
+        }
+        args.push("-v".to_string());
+        let mut mount_str = format!("{}:{}", vol.source.trim(), vol.target.trim());
+        if vol.readonly {
+            mount_str.push_str(":ro");
+        }
+        args.push(mount_str);
+    }
+
+    args
+}
+
 async fn dockerfile_up(
     app: &AppHandle,
     project: &Project,
     event_name: &str,
 ) -> Result<(), String> {
-    let dockerfile = project.dockerfile.as_deref().unwrap_or("Dockerfile");
     let container_name = format!(
         "acd-project-{}",
         project.id.chars().take(8).collect::<String>()
     );
-    let image_tag = format!(
-        "acd-project-{}",
-        project.name.to_lowercase().replace(' ', "-")
-    );
 
-    // Build image
-    let _ = app.emit(event_name, "Building container image...");
-
-    let mut build_child = Command::new(container_cmd())
-        .args(["build", "-t", &image_tag, "-f", dockerfile, "."])
-        .current_dir(&project.workspace_path)
-        .env("PATH", &*EXTENDED_PATH)
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .spawn()
-        .map_err(|e| format!("Failed to spawn container build: {}", e))?;
-
-    stream_child_output(app, &mut build_child, event_name).await?;
-
-    let build_status = build_child
-        .wait()
-        .await
-        .map_err(|e| format!("Failed to wait: {}", e))?;
-
-    if !build_status.success() {
-        let _ = app.emit(event_name, "[done]");
-        return Err("Container build failed. Check logs.".to_string());
+    // 1. Run init commands on host
+    if !project.init_commands.is_empty() {
+        run_init_commands(app, project, event_name).await?;
     }
 
-    // Remove existing container if any
+    // 2. Resolve image: use existing image or build from Dockerfile
+    let image_tag = if let Some(ref img) = project.image {
+        if !img.trim().is_empty() {
+            let _ = app.emit(event_name, format!("Using image: {}", img));
+            img.trim().to_string()
+        } else {
+            build_dockerfile_image(app, project, event_name).await?
+        }
+    } else {
+        build_dockerfile_image(app, project, event_name).await?
+    };
+
+    // 3. Remove existing container if any
     let _ = CliExecutor::run(container_cmd(), &["rm", "-f", &container_name]).await;
 
-    // Run container
+    // 4. Run container
     let _ = app.emit(event_name, "Starting container...");
 
     let mut run_args = vec![
@@ -497,11 +557,18 @@ async fn dockerfile_up(
         "-d".to_string(),
         "--name".to_string(),
         container_name.clone(),
-        "-v".to_string(),
-        format!("{}:/app", project.workspace_path),
-        "-w".to_string(),
-        "/app".to_string(),
     ];
+
+    // Volume mounts (watch mode + additional)
+    run_args.extend(build_volume_args(project));
+
+    // Network
+    if let Some(ref net) = project.network {
+        if !net.trim().is_empty() {
+            run_args.push("--network".to_string());
+            run_args.push(net.trim().to_string());
+        }
+    }
 
     // Add env vars
     run_args.extend(collect_env_args(project, app, event_name).await?);
@@ -562,6 +629,43 @@ async fn dockerfile_up(
     }
 
     Ok(())
+}
+
+async fn build_dockerfile_image(
+    app: &AppHandle,
+    project: &Project,
+    event_name: &str,
+) -> Result<String, String> {
+    let dockerfile = project.dockerfile.as_deref().unwrap_or("Dockerfile");
+    let image_tag = format!(
+        "acd-project-{}",
+        project.name.to_lowercase().replace(' ', "-")
+    );
+
+    let _ = app.emit(event_name, "Building container image...");
+
+    let mut build_child = Command::new(container_cmd())
+        .args(["build", "-t", &image_tag, "-f", dockerfile, "."])
+        .current_dir(&project.workspace_path)
+        .env("PATH", &*EXTENDED_PATH)
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("Failed to spawn container build: {}", e))?;
+
+    stream_child_output(app, &mut build_child, event_name).await?;
+
+    let build_status = build_child
+        .wait()
+        .await
+        .map_err(|e| format!("Failed to wait: {}", e))?;
+
+    if !build_status.success() {
+        let _ = app.emit(event_name, "[done]");
+        return Err("Container build failed. Check logs.".to_string());
+    }
+
+    Ok(image_tag)
 }
 
 #[tauri::command]

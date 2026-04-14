@@ -14,14 +14,23 @@ import {
   RotateCw,
   Copy,
   SquareTerminal,
+  Image as ImageIcon,
+  Network,
+  Terminal,
+  HardDrive,
+  Eye,
+  FolderOpen,
+  ChevronDown,
 } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
-import type { Project } from "../../types";
+import type { Project, VolumeMount } from "../../types";
 import {
   useUpdateProject,
   useProjectAction,
   useOpenTerminalExec,
 } from "../../hooks/useProjects";
+import { useNetworks, useCreateNetwork } from "../../hooks/useNetworks";
+import { useVolumes } from "../../hooks/useVolumes";
 import { EnvironmentTab } from "../env/EnvironmentTab";
 import { ProjectEnvSelector } from "../environment/ProjectEnvSelector";
 
@@ -34,6 +43,9 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
   const updateProject = useUpdateProject();
   const action = useProjectAction();
   const openTerminal = useOpenTerminalExec();
+  const { data: networkList = [] } = useNetworks();
+  const { data: volumeList = [] } = useVolumes();
+  const createNetwork = useCreateNetwork();
 
   const [dotenvPath, setDotenvPath] = useState(project.dotenv_path || "");
   const [envCommand, setEnvCommand] = useState(project.env_command || "");
@@ -46,6 +58,21 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
   const [logs, setLogs] = useState<string[]>([]);
   const [isRunning, setIsRunning] = useState(false);
 
+  // New fields
+  const [imageSource, setImageSource] = useState<"dockerfile" | "image">(
+    project.image ? "image" : "dockerfile"
+  );
+  const [imageName, setImageName] = useState(project.image || "");
+  const [dockerfile, setDockerfile] = useState(project.dockerfile || "Dockerfile");
+  const [selectedNetwork, setSelectedNetwork] = useState(project.network || "");
+  const [newNetworkName, setNewNetworkName] = useState("");
+  const [showNewNetwork, setShowNewNetwork] = useState(false);
+  const [initCommands, setInitCommands] = useState<string[]>(
+    project.init_commands.length > 0 ? project.init_commands : [""]
+  );
+  const [watchMode, setWatchMode] = useState(project.watch_mode);
+  const [volumeMounts, setVolumeMounts] = useState<VolumeMount[]>(project.volumes);
+
   // Track changes
   useEffect(() => {
     const changed =
@@ -55,9 +82,15 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
       debugPort !== project.debug_port ||
       JSON.stringify(ports.filter(Boolean)) !== JSON.stringify(project.ports) ||
       startupCommand !== (project.startup_command || "") ||
-      domain !== (project.domain || "");
+      domain !== (project.domain || "") ||
+      (imageSource === "image" ? imageName : "") !== (project.image || "") ||
+      (imageSource === "dockerfile" ? dockerfile : "") !== (project.dockerfile || "Dockerfile") ||
+      selectedNetwork !== (project.network || "") ||
+      JSON.stringify(initCommands.filter(Boolean)) !== JSON.stringify(project.init_commands) ||
+      watchMode !== project.watch_mode ||
+      JSON.stringify(volumeMounts) !== JSON.stringify(project.volumes);
     setHasChanges(changed);
-  }, [dotenvPath, envCommand, remoteDebug, debugPort, ports, startupCommand, domain, project]);
+  }, [dotenvPath, envCommand, remoteDebug, debugPort, ports, startupCommand, domain, imageSource, imageName, dockerfile, selectedNetwork, initCommands, watchMode, volumeMounts, project]);
 
   // Listen for logs
   useEffect(() => {
@@ -86,7 +119,7 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
     env_command: envCommand || null,
     remote_debug: remoteDebug,
     debug_port: debugPort,
-    dockerfile: project.dockerfile,
+    dockerfile: imageSource === "dockerfile" ? dockerfile || null : project.dockerfile,
     ports: ports.filter(Boolean),
     startup_command: startupCommand || null,
     active_profile: project.active_profile,
@@ -94,6 +127,11 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
     infisical_config: project.infisical_config,
     env_binding: project.env_binding,
     domain: domain || null,
+    image: imageSource === "image" ? imageName || null : null,
+    network: selectedNetwork || null,
+    init_commands: initCommands.filter(Boolean),
+    volumes: volumeMounts.filter((v) => v.source.trim() && v.target.trim()),
+    watch_mode: watchMode,
   });
 
   const handleSave = () => {
@@ -198,6 +236,332 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
                 ? <>Access via <code className="text-[10px]">http://{domain}.container.local</code> when DNS is configured</>
                 : "Set a hostname to access this project via Container Domains"}
             </p>
+          </div>
+        </div>
+
+        {/* Image Source */}
+        <div className="glass-panel rounded-lg p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <ImageIcon className="h-4 w-4 text-muted-foreground" />
+            <h3 className="text-sm font-semibold">Image Source</h3>
+          </div>
+          <div className="flex gap-2">
+            <button
+              className={`flex-1 text-xs px-3 py-1.5 rounded-md border transition-colors ${
+                imageSource === "dockerfile"
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-muted/30 border-[var(--glass-border)] hover:bg-muted/50"
+              }`}
+              onClick={() => setImageSource("dockerfile")}
+            >
+              Build from Dockerfile
+            </button>
+            <button
+              className={`flex-1 text-xs px-3 py-1.5 rounded-md border transition-colors ${
+                imageSource === "image"
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-muted/30 border-[var(--glass-border)] hover:bg-muted/50"
+              }`}
+              onClick={() => setImageSource("image")}
+            >
+              Use Existing Image
+            </button>
+          </div>
+          {imageSource === "dockerfile" ? (
+            <div className="space-y-1">
+              <Input
+                placeholder="Dockerfile"
+                value={dockerfile}
+                onChange={(e) => setDockerfile(e.target.value)}
+                className="h-7 text-xs font-mono"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                Dockerfile path relative to workspace
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              <Input
+                placeholder="e.g. node:20-alpine, ubuntu:24.04"
+                value={imageName}
+                onChange={(e) => setImageName(e.target.value)}
+                className="h-7 text-xs font-mono"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                Image name with tag (skips Dockerfile build)
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Network */}
+        <div className="glass-panel rounded-lg p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <Network className="h-4 w-4 text-muted-foreground" />
+            <h3 className="text-sm font-semibold">Network</h3>
+          </div>
+          <div className="relative">
+            <select
+              value={selectedNetwork}
+              onChange={(e) => setSelectedNetwork(e.target.value)}
+              className="w-full h-7 text-xs font-mono bg-transparent border border-[var(--glass-border)] rounded-md px-2 pr-7 appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary"
+            >
+              <option value="">None (default)</option>
+              {networkList.map((net) => (
+                <option key={net.id} value={net.name}>
+                  {net.name} ({net.driver})
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none" />
+          </div>
+          {!showNewNetwork ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 text-xs"
+              onClick={() => setShowNewNetwork(true)}
+            >
+              <Plus className="h-3 w-3 mr-1" /> Create Network
+            </Button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Input
+                placeholder="Network name"
+                value={newNetworkName}
+                onChange={(e) => setNewNetworkName(e.target.value)}
+                className="h-7 text-xs font-mono flex-1"
+                autoFocus
+              />
+              <Button
+                size="sm"
+                className="h-7 text-xs"
+                disabled={!newNetworkName.trim() || createNetwork.isPending}
+                onClick={() => {
+                  createNetwork.mutate(
+                    { name: newNetworkName.trim() },
+                    {
+                      onSuccess: () => {
+                        setSelectedNetwork(newNetworkName.trim());
+                        setNewNetworkName("");
+                        setShowNewNetwork(false);
+                      },
+                    }
+                  );
+                }}
+              >
+                {createNetwork.isPending ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  "Create"
+                )}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => {
+                  setNewNetworkName("");
+                  setShowNewNetwork(false);
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {/* Initialize Commands */}
+        <div className="glass-panel rounded-lg p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Terminal className="h-4 w-4 text-muted-foreground" />
+              <h3 className="text-sm font-semibold">Initialize Commands</h3>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 text-xs"
+              onClick={() => setInitCommands([...initCommands, ""])}
+            >
+              <Plus className="h-3 w-3 mr-1" /> Add
+            </Button>
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            Commands run sequentially on the host before container start.
+          </p>
+          {initCommands.map((cmd, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <span className="text-[10px] text-muted-foreground w-4 text-right shrink-0">
+                {i + 1}.
+              </span>
+              <Input
+                placeholder="e.g. npm install, make build"
+                value={cmd}
+                onChange={(e) => {
+                  const next = [...initCommands];
+                  next[i] = e.target.value;
+                  setInitCommands(next);
+                }}
+                className="h-7 text-xs font-mono flex-1"
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 shrink-0"
+                onClick={() => setInitCommands(initCommands.filter((_, j) => j !== i))}
+                disabled={initCommands.length <= 1}
+              >
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            </div>
+          ))}
+        </div>
+
+        {/* Volumes */}
+        <div className="glass-panel rounded-lg p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <HardDrive className="h-4 w-4 text-muted-foreground" />
+            <h3 className="text-sm font-semibold">Volumes</h3>
+          </div>
+
+          {/* Watch Mode Toggle */}
+          <label className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Eye className="h-4 w-4 text-muted-foreground" />
+              <div>
+                <span className="text-sm">Watch Mode</span>
+                <p className="text-[11px] text-muted-foreground">
+                  Mount workspace to /app for live file sync
+                </p>
+              </div>
+            </div>
+            <button
+              className={`relative h-5 w-9 rounded-full transition-colors ${
+                watchMode ? "bg-primary" : "bg-muted"
+              }`}
+              onClick={() => setWatchMode(!watchMode)}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white transition-transform ${
+                  watchMode ? "translate-x-4" : ""
+                }`}
+              />
+            </button>
+          </label>
+
+          <div className="border-t border-[var(--glass-border)]" />
+
+          {/* Additional Volume Mounts */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Additional Mounts</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 text-xs"
+                onClick={() =>
+                  setVolumeMounts([
+                    ...volumeMounts,
+                    { mount_type: "bind", source: "", target: "", readonly: false },
+                  ])
+                }
+              >
+                <Plus className="h-3 w-3 mr-1" /> Add
+              </Button>
+            </div>
+            {volumeMounts.length === 0 && (
+              <p className="text-[10px] text-muted-foreground">
+                No additional mounts configured.
+              </p>
+            )}
+            {volumeMounts.map((vol, i) => (
+              <div key={i} className="space-y-1.5 rounded-md bg-muted/10 p-2">
+                <div className="flex items-center gap-2">
+                  <select
+                    value={vol.mount_type}
+                    onChange={(e) => {
+                      const next = [...volumeMounts];
+                      next[i] = { ...vol, mount_type: e.target.value as "bind" | "volume", source: "" };
+                      setVolumeMounts(next);
+                    }}
+                    className="h-7 text-xs bg-transparent border border-[var(--glass-border)] rounded-md px-2 appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary"
+                  >
+                    <option value="bind">Bind Mount</option>
+                    <option value="volume">Named Volume</option>
+                  </select>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 shrink-0 ml-auto"
+                    onClick={() => setVolumeMounts(volumeMounts.filter((_, j) => j !== i))}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+                <div className="flex items-center gap-2">
+                  {vol.mount_type === "bind" ? (
+                    <div className="flex-1 flex items-center gap-1">
+                      <FolderOpen className="h-3 w-3 text-muted-foreground shrink-0" />
+                      <Input
+                        placeholder="Host path (e.g. /data/db)"
+                        value={vol.source}
+                        onChange={(e) => {
+                          const next = [...volumeMounts];
+                          next[i] = { ...vol, source: e.target.value };
+                          setVolumeMounts(next);
+                        }}
+                        className="h-7 text-xs font-mono flex-1"
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex-1 relative">
+                      <select
+                        value={vol.source}
+                        onChange={(e) => {
+                          const next = [...volumeMounts];
+                          next[i] = { ...vol, source: e.target.value };
+                          setVolumeMounts(next);
+                        }}
+                        className="w-full h-7 text-xs font-mono bg-transparent border border-[var(--glass-border)] rounded-md px-2 pr-7 appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary"
+                      >
+                        <option value="">Select volume...</option>
+                        {volumeList.map((v) => (
+                          <option key={v.name} value={v.name}>
+                            {v.name}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none" />
+                    </div>
+                  )}
+                  <span className="text-[10px] text-muted-foreground shrink-0">→</span>
+                  <Input
+                    placeholder="Container path (e.g. /data)"
+                    value={vol.target}
+                    onChange={(e) => {
+                      const next = [...volumeMounts];
+                      next[i] = { ...vol, target: e.target.value };
+                      setVolumeMounts(next);
+                    }}
+                    className="h-7 text-xs font-mono flex-1"
+                  />
+                </div>
+                <label className="flex items-center gap-1.5 pl-1">
+                  <input
+                    type="checkbox"
+                    checked={vol.readonly}
+                    onChange={(e) => {
+                      const next = [...volumeMounts];
+                      next[i] = { ...vol, readonly: e.target.checked };
+                      setVolumeMounts(next);
+                    }}
+                    className="h-3 w-3 rounded border-[var(--glass-border)]"
+                  />
+                  <span className="text-[10px] text-muted-foreground">Read-only</span>
+                </label>
+              </div>
+            ))}
           </div>
         </div>
 
