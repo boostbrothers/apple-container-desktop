@@ -18,7 +18,7 @@ interface DevcontainerConfigEditorProps {
 const TABS: { key: ConfigTab; label: string }[] = [
   { key: "general", label: "General" },
   { key: "features", label: "Features" },
-  { key: "ports-env", label: "Ports & Env" },
+  { key: "ports-env", label: "Env" },
   { key: "lifecycle", label: "Lifecycle" },
   { key: "json", label: "JSON" },
 ];
@@ -59,6 +59,10 @@ export function DevcontainerConfigEditor({
           const validationErrs = parseValidationErrors(err);
           if (validationErrs.length > 0) {
             setSaveErrors(validationErrs);
+          } else {
+            const msg =
+              err instanceof Error ? err.message : typeof err === "string" ? err : "Unknown error";
+            setSaveErrors([{ path: "", message: msg }]);
           }
         },
       },

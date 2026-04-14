@@ -39,8 +39,12 @@ export function useValidateDevcontainerConfig() {
 }
 
 export function parseValidationErrors(error: unknown): DevcontainerValidationError[] {
-  if (!(error instanceof Error)) return [];
-  const msg = error.message;
+  const msg =
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+        ? error
+        : "";
   if (msg.startsWith("VALIDATION:")) {
     try {
       return JSON.parse(msg.slice("VALIDATION:".length));

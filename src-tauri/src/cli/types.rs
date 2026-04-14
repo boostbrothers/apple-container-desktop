@@ -513,6 +513,7 @@ pub struct ProjectWithStatus {
     pub profiles: Vec<String>,
     pub infisical_config: Option<InfisicalConfig>,
     pub env_binding: ProjectEnvBinding,
+    pub domain: Option<String>,
     pub status: String,
     pub container_ids: Vec<String>,
 }
@@ -539,6 +540,7 @@ impl Project {
             profiles: self.profiles,
             infisical_config: self.infisical_config,
             env_binding: self.env_binding,
+            domain: self.domain,
             status,
             container_ids,
         }

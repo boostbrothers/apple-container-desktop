@@ -1,12 +1,10 @@
-use crate::cli::executor::CliExecutor;
+use crate::cli::executor::{docker_cmd, CliExecutor};
 use crate::cli::types::{DockerNetworkEntry, Network};
-
-const DOCKER: &str = "/opt/homebrew/bin/docker";
 
 #[tauri::command]
 pub async fn list_networks() -> Result<Vec<Network>, String> {
     let entries: Vec<DockerNetworkEntry> =
-        CliExecutor::run_json_lines(DOCKER, &["network", "ls", "--format", "json"]).await?;
+        CliExecutor::run_json_lines(docker_cmd(), &["network", "ls", "--format", "json"]).await?;
     Ok(entries.into_iter().map(Network::from).collect())
 }
 
@@ -22,16 +20,16 @@ pub async fn create_network(name: String, driver: Option<String>) -> Result<Stri
         }
     }
     args.push(&name);
-    CliExecutor::run(DOCKER, &args).await
+    CliExecutor::run(docker_cmd(), &args).await
 }
 
 #[tauri::command]
 pub async fn remove_network(id: String) -> Result<(), String> {
-    CliExecutor::run(DOCKER, &["network", "rm", &id]).await?;
+    CliExecutor::run(docker_cmd(), &["network", "rm", &id]).await?;
     Ok(())
 }
 
 #[tauri::command]
 pub async fn prune_networks() -> Result<String, String> {
-    CliExecutor::run(DOCKER, &["network", "prune", "-f"]).await
+    CliExecutor::run(docker_cmd(), &["network", "prune", "-f"]).await
 }

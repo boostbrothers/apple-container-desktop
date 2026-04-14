@@ -309,65 +309,46 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
           <div className="border-t border-[var(--glass-border)]" />
 
           {/* Port Mappings */}
-          {project.project_type === "devcontainer" ? (
-            <div className="space-y-2">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
               <span className="text-sm">Ports</span>
-              <div className="rounded-md bg-muted/20 px-3 py-2">
-                <p className="text-[10px] text-muted-foreground">
-                  DevContainer ports are configured via <code className="text-[10px]">forwardPorts</code> in devcontainer.json.
-                </p>
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="h-5 px-0 text-[11px]"
-                  onClick={() => setShowConfig(true)}
-                >
-                  Open Config Editor →
-                </Button>
-              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 text-xs"
+                onClick={() => setPorts([...ports, ""])}
+              >
+                <Plus className="h-3 w-3 mr-1" /> Add
+              </Button>
             </div>
-          ) : (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm">Ports</span>
+            {ports.map((port, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <Input
+                  placeholder="8080:8080"
+                  value={port}
+                  onChange={(e) => {
+                    const next = [...ports];
+                    next[i] = e.target.value;
+                    setPorts(next);
+                  }}
+                  className="h-7 text-xs font-mono flex-1"
+                />
                 <Button
                   variant="ghost"
-                  size="sm"
-                  className="h-6 text-xs"
-                  onClick={() => setPorts([...ports, ""])}
+                  size="icon"
+                  className="h-7 w-7 shrink-0"
+                  onClick={() => setPorts(ports.filter((_, j) => j !== i))}
+                  disabled={ports.length <= 1}
                 >
-                  <Plus className="h-3 w-3 mr-1" /> Add
+                  <Trash2 className="h-3 w-3" />
                 </Button>
               </div>
-              {ports.map((port, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <Input
-                    placeholder="8080:8080"
-                    value={port}
-                    onChange={(e) => {
-                      const next = [...ports];
-                      next[i] = e.target.value;
-                      setPorts(next);
-                    }}
-                    className="h-7 text-xs font-mono flex-1"
-                  />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 shrink-0"
-                    onClick={() => setPorts(ports.filter((_, j) => j !== i))}
-                    disabled={ports.length <= 1}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </div>
-              ))}
-              <p className="text-[10px] text-muted-foreground">
-                host:container format (e.g. 3000:3000, 5432:5432)
-                {project.project_type === "compose" && " — Added on top of ports defined in compose YAML."}
-              </p>
-            </div>
-          )}
+            ))}
+            <p className="text-[10px] text-muted-foreground">
+              host:container format (e.g. 3000:3000, 5432:5432)
+              {project.project_type === "compose" && " — Added on top of ports defined in compose YAML."}
+            </p>
+          </div>
 
           <div className="border-t border-[var(--glass-border)]" />
 

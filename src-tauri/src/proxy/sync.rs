@@ -52,56 +52,82 @@ pub async fn sync_containers(
     for entry in &entries {
         let name = &entry.names;
 
-        // Determine hostname and port from config
-        let (hostname, port, auto) = if let Some(ovr) = config.container_overrides.get(name) {
-            if !ovr.enabled {
+        // Determine hostname, port_routes, and auto flag from config
+        let (hostname, port_routes, legacy_port, auto) =
+            if let Some(ovr) = config.container_overrides.get(name) {
+                if !ovr.enabled {
+                    continue;
+                }
+                let h = ovr.hostname.as_deref().unwrap_or(name).to_string();
+                if !ovr.port_routes.is_empty() {
+                    (h, ovr.port_routes.clone(), None, false)
+                } else {
+                    let p = ovr.port.or_else(|| parse_first_host_port(&entry.ports));
+                    (h, vec![], p, false)
+                }
+            } else if config.auto_register {
+                let p = parse_first_host_port(&entry.ports);
+                (name.clone(), vec![], p, true)
+            } else {
                 continue;
-            }
-            let h = ovr.hostname.as_deref().unwrap_or(name);
-            let p = ovr.port.or_else(|| parse_first_host_port(&entry.ports));
-            (h.to_string(), p, false)
-        } else if config.auto_register {
-            let p = parse_first_host_port(&entry.ports);
-            (name.clone(), p, true)
+            };
+
+        // Build list of (route_hostname, container_port) pairs
+        let routes: Vec<(String, u16)> = if !port_routes.is_empty() {
+            port_routes
+                .iter()
+                .enumerate()
+                .map(|(i, r)| {
+                    let rh = if i == 0 {
+                        hostname.clone()
+                    } else {
+                        format!("{}-{}", hostname, r.host_port)
+                    };
+                    (rh, r.container_port)
+                })
+                .collect()
         } else {
-            continue;
+            match legacy_port {
+                Some(p) => vec![(hostname.clone(), p)],
+                None => continue,
+            }
         };
 
-        let port = match port {
-            Some(p) => p,
-            None => continue,
+        // Resolve container IP once (shared across all port routes)
+        let container_ip = if gateway_running {
+            let _ = gateway::connect_container(name).await;
+            gateway::get_container_ip(name).await.ok()
+        } else {
+            None
         };
 
-        let domain = format!("{}.{}", hostname, config.domain_suffix);
+        for (route_hostname, container_port) in &routes {
+            let domain = format!("{}.{}", route_hostname, config.domain_suffix);
 
-        // DNS: resolve domain to 127.0.0.1 (for host access via /etc/resolver)
-        dns_table.insert(domain.clone(), Ipv4Addr::LOCALHOST);
+            // DNS: resolve domain to 127.0.0.1
+            dns_table.insert(domain.clone(), Ipv4Addr::LOCALHOST);
 
-        // Gateway: connect container and write route config
-        let mut registered = false;
-        if gateway_running {
-            // Connect container to gateway network (idempotent)
-            if gateway::connect_container(name).await.is_ok() {
-                // Get container IP on the gateway network
-                if let Ok(ip) = gateway::get_container_ip(name).await {
-                    // Write Traefik dynamic config
-                    if gateway::write_route_config(&hostname, &domain, &ip, port).is_ok() {
-                        registered = true;
-                        active_hostnames.push(hostname.clone());
-                    }
+            // Gateway: write Traefik dynamic config
+            let mut registered = false;
+            if let Some(ref ip) = container_ip {
+                if gateway::write_route_config(route_hostname, &domain, ip, *container_port)
+                    .is_ok()
+                {
+                    registered = true;
+                    active_hostnames.push(route_hostname.clone());
                 }
             }
-        }
 
-        result_services.push(DomainServiceEntry {
-            container_id: entry.id.clone(),
-            container_name: name.clone(),
-            hostname: hostname.clone(),
-            domain,
-            port,
-            registered,
-            auto_registered: auto,
-        });
+            result_services.push(DomainServiceEntry {
+                container_id: entry.id.clone(),
+                container_name: name.clone(),
+                hostname: route_hostname.clone(),
+                domain,
+                port: *container_port,
+                registered,
+                auto_registered: auto,
+            });
+        }
     }
 
     // 4. Remove stale route configs (containers that stopped)

@@ -1,4 +1,4 @@
-use crate::cli::executor::CliExecutor;
+use crate::cli::executor::{docker_cmd, CliExecutor, EXTENDED_PATH};
 use crate::cli::types::{
     Container, ContainerDetail, ContainerStats, DockerPsEntry, MountInfo, NetworkInfo, PortBinding,
 };
@@ -6,42 +6,40 @@ use tauri::{AppHandle, Emitter};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 
-const DOCKER: &str = "/opt/homebrew/bin/docker";
-
 #[tauri::command]
 pub async fn list_containers() -> Result<Vec<Container>, String> {
     let entries: Vec<DockerPsEntry> =
-        CliExecutor::run_json_lines(DOCKER, &["ps", "-a", "--format", "json"]).await?;
+        CliExecutor::run_json_lines(docker_cmd(), &["ps", "-a", "--format", "json"]).await?;
     Ok(entries.into_iter().map(Container::from).collect())
 }
 
 #[tauri::command]
 pub async fn container_start(id: String) -> Result<(), String> {
-    CliExecutor::run(DOCKER, &["start", &id]).await?;
+    CliExecutor::run(docker_cmd(), &["start", &id]).await?;
     Ok(())
 }
 
 #[tauri::command]
 pub async fn container_stop(id: String) -> Result<(), String> {
-    CliExecutor::run(DOCKER, &["stop", &id]).await?;
+    CliExecutor::run(docker_cmd(), &["stop", &id]).await?;
     Ok(())
 }
 
 #[tauri::command]
 pub async fn container_restart(id: String) -> Result<(), String> {
-    CliExecutor::run(DOCKER, &["restart", &id]).await?;
+    CliExecutor::run(docker_cmd(), &["restart", &id]).await?;
     Ok(())
 }
 
 #[tauri::command]
 pub async fn container_remove(id: String) -> Result<(), String> {
-    CliExecutor::run(DOCKER, &["rm", "-f", &id]).await?;
+    CliExecutor::run(docker_cmd(), &["rm", "-f", &id]).await?;
     Ok(())
 }
 
 #[tauri::command]
 pub async fn prune_containers() -> Result<String, String> {
-    CliExecutor::run(DOCKER, &["container", "prune", "-f"]).await
+    CliExecutor::run(docker_cmd(), &["container", "prune", "-f"]).await
 }
 
 #[tauri::command]
@@ -82,15 +80,16 @@ pub async fn run_container(
     args.push(image);
 
     let refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
-    CliExecutor::run(DOCKER, &refs).await
+    CliExecutor::run(docker_cmd(), &refs).await
 }
 
 #[tauri::command]
 pub async fn stream_container_logs(app: AppHandle, id: String) -> Result<(), String> {
     let docker_host = crate::cli::executor::docker_host();
 
-    let mut child = Command::new(DOCKER)
+    let mut child = Command::new(docker_cmd())
         .args(["logs", "-f", "--tail", "200", &id])
+        .env("PATH", &*EXTENDED_PATH)
         .env("DOCKER_HOST", &docker_host)
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
@@ -124,7 +123,7 @@ pub async fn stream_container_logs(app: AppHandle, id: String) -> Result<(), Str
 
 #[tauri::command]
 pub async fn container_inspect(id: String) -> Result<ContainerDetail, String> {
-    let output = CliExecutor::run(DOCKER, &["inspect", &id]).await?;
+    let output = CliExecutor::run(docker_cmd(), &["inspect", &id]).await?;
     let parsed: serde_json::Value =
         serde_json::from_str(&output).map_err(|e| format!("JSON parse error: {}", e))?;
 
@@ -248,7 +247,7 @@ pub async fn container_inspect(id: String) -> Result<ContainerDetail, String> {
 #[tauri::command]
 pub async fn container_stats(id: String) -> Result<ContainerStats, String> {
     let output = CliExecutor::run(
-        DOCKER,
+        docker_cmd(),
         &[
             "stats",
             &id,

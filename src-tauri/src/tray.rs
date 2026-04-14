@@ -18,8 +18,7 @@ async fn fetch_colima_status() -> ColimaStatus {
 }
 
 async fn fetch_running_containers() -> Vec<Container> {
-    let docker = "/opt/homebrew/bin/docker";
-    match CliExecutor::run_json_lines::<DockerPsEntry>(docker, &["ps", "--format", "json"]).await {
+    match CliExecutor::run_json_lines::<DockerPsEntry>(crate::cli::executor::docker_cmd(), &["ps", "--format", "json"]).await {
         Ok(entries) => entries.into_iter().map(Container::from).collect(),
         Err(_) => Vec::new(),
     }

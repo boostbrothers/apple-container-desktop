@@ -267,10 +267,16 @@ export interface DomainConfig {
   container_overrides: Record<string, ContainerDomainOverride>;
 }
 
+export interface PortRoute {
+  host_port: number;
+  container_port: number;
+}
+
 export interface ContainerDomainOverride {
   enabled: boolean;
   hostname?: string | null;
   port?: number | null;
+  port_routes?: PortRoute[];
 }
 
 export interface DomainServiceEntry {
