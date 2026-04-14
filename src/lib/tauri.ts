@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { Container, Image, SystemStatus, ResourceSettings, HostInfo, Volume, Network, ContainerDetail, ContainerStats, ContainerVersion, ContainerInstallCheck, RegistrySettings, DomainStatus, Project, ProjectTypeDetection, EnvVarEntry, InfisicalConfig, AppSettings, GlobalEnvVar, EnvProfile, ProjectEnvBinding, DomainConfig, ContainerDomainOverride } from "../types";
 
 export const api = {
-  // System (was Colima)
+  // System
   systemStatus: () => invoke<SystemStatus>("system_status"),
   systemStart: () => invoke<void>("system_start"),
   systemStop: () => invoke<void>("system_stop"),

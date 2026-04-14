@@ -15,7 +15,47 @@ fn config_path() -> Result<std::path::PathBuf, String> {
     Ok(app_dir.join("projects.json"))
 }
 
+/// Migrate config from old `~/.config/colima-desktop/` to `~/.config/apple-container-desktop/`.
+/// Copies files only if the new directory is empty and the old directory exists.
+fn migrate_legacy_config() {
+    let config_dir = match dirs::config_dir() {
+        Some(d) => d,
+        None => return,
+    };
+
+    let old_dir = config_dir.join("colima-desktop");
+    let new_dir = config_dir.join("apple-container-desktop");
+
+    if !old_dir.exists() {
+        return;
+    }
+
+    // Only migrate if the new config dir is missing or empty (no projects.json yet)
+    let new_projects = new_dir.join("projects.json");
+    if new_projects.exists() {
+        return;
+    }
+
+    let _ = std::fs::create_dir_all(&new_dir);
+
+    // Copy all files from old dir to new dir
+    if let Ok(entries) = std::fs::read_dir(&old_dir) {
+        for entry in entries.flatten() {
+            let src = entry.path();
+            if src.is_file() {
+                if let Some(name) = src.file_name() {
+                    let dst = new_dir.join(name);
+                    if !dst.exists() {
+                        let _ = std::fs::copy(&src, &dst);
+                    }
+                }
+            }
+        }
+    }
+}
+
 pub fn load_projects() -> Result<Vec<Project>, String> {
+    migrate_legacy_config();
     let path = config_path()?;
     if !path.exists() {
         return Ok(Vec::new());

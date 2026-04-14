@@ -103,6 +103,32 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 
 [[package]]
+name = "apple-container-desktop"
+version = "0.8.0"
+dependencies = [
+ "aes-gcm",
+ "base64 0.22.1",
+ "dirs",
+ "image",
+ "jsonschema",
+ "rand 0.8.5",
+ "reqwest 0.12.28",
+ "security-framework",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "tauri-plugin-liquid-glass",
+ "tauri-plugin-opener",
+ "tauri-plugin-updater",
+ "tempfile",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
 name = "arbitrary"
 version = "1.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -614,32 +640,6 @@ dependencies = [
  "core-foundation 0.10.1",
  "core-graphics-types",
  "objc",
-]
-
-[[package]]
-name = "colima-desktop"
-version = "0.8.0"
-dependencies = [
- "aes-gcm",
- "base64 0.22.1",
- "dirs",
- "image",
- "jsonschema",
- "rand 0.8.5",
- "reqwest 0.12.28",
- "security-framework",
- "serde",
- "serde_json",
- "serde_yaml",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
- "tauri-plugin-liquid-glass",
- "tauri-plugin-opener",
- "tauri-plugin-updater",
- "tempfile",
- "tokio",
- "uuid",
 ]
 
 [[package]]
