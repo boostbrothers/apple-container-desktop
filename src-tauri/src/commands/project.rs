@@ -1,4 +1,4 @@
-use crate::cli::executor::{docker_host, CliExecutor};
+use crate::cli::executor::{docker_cmd, docker_host, CliExecutor, EXTENDED_PATH};
 use crate::cli::types::{
     Project, ProjectWithStatus, ProjectsConfig, EnvVarEntry,
     ProjectTypeDetection, ProjectEnvBinding,
@@ -7,8 +7,6 @@ use crate::proxy::config::{self as domain_config, ContainerDomainOverride};
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
-
-const DOCKER: &str = "/opt/homebrew/bin/docker";
 
 fn config_path() -> Result<std::path::PathBuf, String> {
     let config_dir = dirs::config_dir().ok_or("Cannot find config directory")?;
@@ -183,13 +181,14 @@ pub async fn get_project_status(project: Project) -> ProjectWithStatus {
 
 fn find_docker_compose_cmd() -> Option<Vec<String>> {
     // Try `docker compose` (v2 plugin) first
-    if let Ok(output) = std::process::Command::new(DOCKER)
+    if let Ok(output) = std::process::Command::new(docker_cmd())
         .args(["compose", "version"])
+        .env("PATH", &*EXTENDED_PATH)
         .env("DOCKER_HOST", docker_host())
         .output()
     {
         if output.status.success() {
-            return Some(vec![DOCKER.to_string(), "compose".to_string()]);
+            return Some(vec![docker_cmd().to_string(), "compose".to_string()]);
         }
     }
     // Try standalone docker-compose
@@ -297,7 +296,7 @@ async fn get_compose_status(project: &Project) -> (String, Vec<String>) {
     let project_name = project.name.to_lowercase().replace(' ', "-");
     let label_filter = format!("label=com.docker.compose.project={}", project_name);
     match CliExecutor::run(
-        DOCKER,
+        docker_cmd(),
         &["ps", "-a", "--filter", &label_filter, "--format", "{{.ID}}|{{.State}}"],
     )
     .await
@@ -311,7 +310,7 @@ async fn get_dockerfile_status(project: &Project) -> (String, Vec<String>) {
     let container_name = format!("colima-project-{}", project.id.chars().take(8).collect::<String>());
     let filter = format!("name={}", container_name);
     match CliExecutor::run(
-        DOCKER,
+        docker_cmd(),
         &["ps", "-a", "--filter", &filter, "--format", "{{.ID}}|{{.State}}"],
     )
     .await
@@ -327,7 +326,7 @@ async fn get_devcontainer_status(project: &Project) -> (String, Vec<String>) {
         project.workspace_path
     );
     match CliExecutor::run(
-        DOCKER,
+        docker_cmd(),
         &["ps", "-a", "--filter", &label_filter, "--format", "{{.ID}}|{{.State}}"],
     )
     .await
@@ -459,7 +458,7 @@ async fn stop_project_containers(project: &Project) -> Result<(), String> {
                 "colima-project-{}",
                 project.id.chars().take(8).collect::<String>()
             );
-            let _ = CliExecutor::run(DOCKER, &["rm", "-f", &container_name]).await;
+            let _ = CliExecutor::run(docker_cmd(), &["rm", "-f", &container_name]).await;
         }
         "devcontainer" => {
             let label_filter = format!(
@@ -467,7 +466,7 @@ async fn stop_project_containers(project: &Project) -> Result<(), String> {
                 project.workspace_path
             );
             if let Ok(out) = CliExecutor::run(
-                DOCKER,
+                docker_cmd(),
                 &["ps", "-q", "--filter", &label_filter],
             )
             .await
@@ -475,7 +474,7 @@ async fn stop_project_containers(project: &Project) -> Result<(), String> {
                 for cid in out.lines() {
                     let cid = cid.trim();
                     if !cid.is_empty() {
-                        let _ = CliExecutor::run(DOCKER, &["rm", "-f", cid]).await;
+                        let _ = CliExecutor::run(docker_cmd(), &["rm", "-f", cid]).await;
                     }
                 }
             }
@@ -518,6 +517,7 @@ async fn collect_env_args(project: &Project, app: &AppHandle, event_name: &str) 
             let output = Command::new("sh")
                 .args(["-c", cmd])
                 .current_dir(&project.workspace_path)
+                .env("PATH", &*EXTENDED_PATH)
                 .env("DOCKER_HOST", docker_host())
                 .output()
                 .await
@@ -638,7 +638,7 @@ async fn get_project_container_names(project: &Project) -> Vec<String> {
     };
 
     match CliExecutor::run(
-        DOCKER,
+        docker_cmd(),
         &["ps", "--filter", &filter, "--format", "{{.Names}}"],
     )
     .await
@@ -841,6 +841,7 @@ async fn compose_up(
     let mut child = Command::new(&compose_cmd[0])
         .args(&str_args)
         .current_dir(&project.workspace_path)
+        .env("PATH", &*EXTENDED_PATH)
         .env("DOCKER_HOST", &docker_host_val)
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
@@ -879,7 +880,7 @@ async fn dockerfile_up(
     // Build image
     let _ = app.emit(event_name, "Building Docker image...");
 
-    let mut build_child = Command::new(DOCKER)
+    let mut build_child = Command::new(docker_cmd())
         .args([
             "build",
             "-t",
@@ -889,6 +890,7 @@ async fn dockerfile_up(
             ".",
         ])
         .current_dir(&project.workspace_path)
+        .env("PATH", &*EXTENDED_PATH)
         .env("DOCKER_HOST", &docker_host_val)
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
@@ -908,7 +910,7 @@ async fn dockerfile_up(
     }
 
     // Remove existing container if any
-    let _ = CliExecutor::run(DOCKER, &["rm", "-f", &container_name]).await;
+    let _ = CliExecutor::run(docker_cmd(), &["rm", "-f", &container_name]).await;
 
     // Run container
     let _ = app.emit(event_name, "Starting container...");
@@ -962,8 +964,9 @@ async fn dockerfile_up(
 
     let str_args: Vec<&str> = run_args.iter().map(|s| s.as_str()).collect();
 
-    let mut run_child = Command::new(DOCKER)
+    let mut run_child = Command::new(docker_cmd())
         .args(&str_args)
+        .env("PATH", &*EXTENDED_PATH)
         .env("DOCKER_HOST", &docker_host_val)
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
@@ -1023,6 +1026,7 @@ async fn devcontainer_project_up(
 
     let mut child = Command::new(&cli)
         .args(&str_args)
+        .env("PATH", &*EXTENDED_PATH)
         .env("DOCKER_HOST", &docker_host_val)
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
@@ -1062,6 +1066,7 @@ fn find_devcontainer_cli() -> Option<String> {
     }
     if let Ok(output) = std::process::Command::new("which")
         .arg("devcontainer")
+        .env("PATH", &*EXTENDED_PATH)
         .output()
     {
         if output.status.success() {
@@ -1097,7 +1102,7 @@ pub async fn project_stop(id: String) -> Result<(), String> {
                 "colima-project-{}",
                 project.id.chars().take(8).collect::<String>()
             );
-            CliExecutor::run(DOCKER, &["stop", &container_name]).await?;
+            CliExecutor::run(docker_cmd(), &["stop", &container_name]).await?;
         }
         "devcontainer" => {
             let label_filter = format!(
@@ -1105,14 +1110,14 @@ pub async fn project_stop(id: String) -> Result<(), String> {
                 project.workspace_path
             );
             let output = CliExecutor::run(
-                DOCKER,
+                docker_cmd(),
                 &["ps", "-q", "--filter", &label_filter],
             )
             .await?;
             for cid in output.lines() {
                 let cid = cid.trim();
                 if !cid.is_empty() {
-                    CliExecutor::run(DOCKER, &["stop", cid]).await?;
+                    CliExecutor::run(docker_cmd(), &["stop", cid]).await?;
                 }
             }
         }
@@ -1151,6 +1156,7 @@ pub async fn project_logs(app: AppHandle, id: String) -> Result<(), String> {
             let mut child = Command::new(&compose_cmd[0])
                 .args(&str_args)
                 .current_dir(&project.workspace_path)
+                .env("PATH", &*EXTENDED_PATH)
                 .env("DOCKER_HOST", &docker_host_val)
                 .stdout(std::process::Stdio::piped())
                 .stderr(std::process::Stdio::piped())
@@ -1169,8 +1175,9 @@ pub async fn project_logs(app: AppHandle, id: String) -> Result<(), String> {
             };
 
             if let Some(cid) = container_ids.first() {
-                let mut child = Command::new(DOCKER)
+                let mut child = Command::new(docker_cmd())
                     .args(["logs", "-f", "--tail", "200", cid])
+                    .env("PATH", &*EXTENDED_PATH)
                     .env("DOCKER_HOST", &docker_host_val)
                     .stdout(std::process::Stdio::piped())
                     .stderr(std::process::Stdio::piped())
@@ -1227,6 +1234,7 @@ pub async fn run_env_command(command: String, workspace_path: String) -> Result<
     let output = Command::new("sh")
         .args(["-c", &command])
         .current_dir(&workspace_path)
+        .env("PATH", &*EXTENDED_PATH)
         .env("DOCKER_HOST", docker_host())
         .output()
         .await
@@ -1333,7 +1341,7 @@ pub async fn open_terminal_exec(container_id: String) -> Result<(), String> {
     let docker_host_val = docker_host();
     let exec_cmd = format!(
         "DOCKER_HOST={} {} exec -it {} {}",
-        docker_host_val, DOCKER, container_id, settings.shell
+        docker_host_val, docker_cmd(), container_id, settings.shell
     );
 
     let terminal = settings.terminal;

@@ -1,15 +1,13 @@
-use crate::cli::executor::CliExecutor;
+use crate::cli::executor::{docker_cmd, CliExecutor, EXTENDED_PATH};
 use crate::cli::types::{DockerImageEntry, Image};
 use tauri::{AppHandle, Emitter};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 
-const DOCKER: &str = "/opt/homebrew/bin/docker";
-
 #[tauri::command]
 pub async fn list_images() -> Result<Vec<Image>, String> {
     let entries: Vec<DockerImageEntry> =
-        CliExecutor::run_json_lines(DOCKER, &["images", "--format", "json"]).await?;
+        CliExecutor::run_json_lines(docker_cmd(), &["images", "--format", "json"]).await?;
     Ok(entries.into_iter().map(Image::from).collect())
 }
 
@@ -17,8 +15,9 @@ pub async fn list_images() -> Result<Vec<Image>, String> {
 pub async fn pull_image(app: AppHandle, name: String) -> Result<(), String> {
     let docker_host = crate::cli::executor::docker_host();
 
-    let mut child = Command::new(DOCKER)
+    let mut child = Command::new(docker_cmd())
         .args(["pull", &name])
+        .env("PATH", &*EXTENDED_PATH)
         .env("DOCKER_HOST", &docker_host)
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
@@ -51,11 +50,11 @@ pub async fn pull_image(app: AppHandle, name: String) -> Result<(), String> {
 
 #[tauri::command]
 pub async fn remove_image(id: String) -> Result<(), String> {
-    CliExecutor::run(DOCKER, &["rmi", &id]).await?;
+    CliExecutor::run(docker_cmd(), &["rmi", &id]).await?;
     Ok(())
 }
 
 #[tauri::command]
 pub async fn prune_images() -> Result<String, String> {
-    CliExecutor::run(DOCKER, &["image", "prune", "-af"]).await
+    CliExecutor::run(docker_cmd(), &["image", "prune", "-af"]).await
 }

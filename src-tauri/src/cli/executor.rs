@@ -5,7 +5,7 @@ use tokio::process::Command;
 /// Extended PATH that includes common binary locations for macOS app bundles.
 /// macOS .app bundles have a minimal PATH (/usr/bin:/bin:/usr/sbin:/sbin),
 /// so Homebrew and other user-installed binaries are not found without this.
-static EXTENDED_PATH: LazyLock<String> = LazyLock::new(|| {
+pub static EXTENDED_PATH: LazyLock<String> = LazyLock::new(|| {
     let extra = [
         "/opt/homebrew/bin",
         "/opt/homebrew/sbin",
@@ -21,6 +21,17 @@ static EXTENDED_PATH: LazyLock<String> = LazyLock::new(|| {
     }
     parts.join(":")
 });
+
+/// Resolved docker binary path. Checks common install locations and falls
+/// back to the bare name (relying on PATH) when no candidate is found.
+static DOCKER_PATH: LazyLock<String> = LazyLock::new(|| {
+    find_binary("docker").unwrap_or_else(|| "docker".to_string())
+});
+
+/// Return the resolved docker binary path (`&'static str`).
+pub fn docker_cmd() -> &'static str {
+    &DOCKER_PATH
+}
 
 pub struct CliExecutor;
 

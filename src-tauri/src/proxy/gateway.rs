@@ -1,7 +1,5 @@
-use crate::cli::executor::{docker_host, CliExecutor};
+use crate::cli::executor::{docker_cmd, docker_host, CliExecutor, EXTENDED_PATH};
 use std::path::PathBuf;
-
-const DOCKER: &str = "/opt/homebrew/bin/docker";
 const GATEWAY_CONTAINER: &str = "colima-gateway";
 const GATEWAY_NETWORK: &str = "colima-gateway-net";
 const TRAEFIK_IMAGE: &str = "traefik:v3.4";
@@ -23,15 +21,16 @@ async fn ensure_network() -> Result<(), String> {
     let docker_host_val = docker_host();
     // Check if network exists
     let result = CliExecutor::run(
-        DOCKER,
+        docker_cmd(),
         &["network", "inspect", GATEWAY_NETWORK],
     )
     .await;
 
     if result.is_err() {
         // Create it
-        tokio::process::Command::new(DOCKER)
+        tokio::process::Command::new(docker_cmd())
             .args(["network", "create", GATEWAY_NETWORK])
+            .env("PATH", &*EXTENDED_PATH)
             .env("DOCKER_HOST", &docker_host_val)
             .output()
             .await
@@ -96,10 +95,10 @@ api:
     );
 
     // Remove stale container if exists
-    let _ = CliExecutor::run(DOCKER, &["rm", "-f", GATEWAY_CONTAINER]).await;
+    let _ = CliExecutor::run(docker_cmd(), &["rm", "-f", GATEWAY_CONTAINER]).await;
 
     // Start Traefik
-    let output = tokio::process::Command::new(DOCKER)
+    let output = tokio::process::Command::new(docker_cmd())
         .args([
             "run",
             "-d",
@@ -117,6 +116,7 @@ api:
             "unless-stopped",
             TRAEFIK_IMAGE,
         ])
+        .env("PATH", &*EXTENDED_PATH)
         .env("DOCKER_HOST", &docker_host_val)
         .output()
         .await
@@ -132,14 +132,14 @@ api:
 
 /// Stop and remove the gateway container.
 pub async fn stop_gateway() -> Result<(), String> {
-    let _ = CliExecutor::run(DOCKER, &["rm", "-f", GATEWAY_CONTAINER]).await;
+    let _ = CliExecutor::run(docker_cmd(), &["rm", "-f", GATEWAY_CONTAINER]).await;
     Ok(())
 }
 
 /// Check if the gateway container is running.
 pub async fn is_gateway_running() -> bool {
     CliExecutor::run(
-        DOCKER,
+        docker_cmd(),
         &[
             "ps",
             "-q",
@@ -157,13 +157,14 @@ pub async fn is_gateway_running() -> bool {
 /// Connect an existing container to the gateway network so Traefik can reach it.
 pub async fn connect_container(container_name: &str) -> Result<(), String> {
     let docker_host_val = docker_host();
-    let output = tokio::process::Command::new(DOCKER)
+    let output = tokio::process::Command::new(docker_cmd())
         .args([
             "network",
             "connect",
             GATEWAY_NETWORK,
             container_name,
         ])
+        .env("PATH", &*EXTENDED_PATH)
         .env("DOCKER_HOST", &docker_host_val)
         .output()
         .await
@@ -188,7 +189,7 @@ pub async fn get_container_ip(container_name: &str) -> Result<String, String> {
         GATEWAY_NETWORK
     );
     let ip = CliExecutor::run(
-        DOCKER,
+        docker_cmd(),
         &["inspect", "--format", &format, container_name],
     )
     .await
