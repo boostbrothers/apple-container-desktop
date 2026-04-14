@@ -203,44 +203,6 @@ impl From<NetworkListEntry> for Network {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct MountEntry {
-    pub location: String,
-    #[serde(default)]
-    pub writable: bool,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct MountSettings {
-    pub mounts: Vec<MountEntry>,
-    pub mount_type: String,
-    pub mount_inotify: bool,
-}
-
-#[derive(Debug, Serialize, Clone)]
-pub struct VersionCheck {
-    pub current: String,
-    pub latest: String,
-    pub update_available: bool,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct NetworkSettings {
-    pub dns: Vec<String>,
-    pub dns_hosts: Vec<DnsHostEntry>,
-    pub network_address: bool,
-    pub network_mode: String,
-    pub gateway_address: String,
-    pub network_interface: String,
-    pub port_forwarder: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct DnsHostEntry {
-    pub hostname: String,
-    pub ip: String,
-}
-
 #[derive(Debug, Serialize, Clone)]
 pub struct ContainerDetail {
     pub id: String,
