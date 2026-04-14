@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/tauri";
-import type { DomainConfig, ContainerDomainOverride } from "../types";
+import type { DomainConfig } from "../types";
 
 export function useDomainConfig() {
   return useQuery({
@@ -17,28 +17,26 @@ export function useDomainSetConfig() {
   });
 }
 
-export function useDomainSync(enabled: boolean) {
+export function useDomainStatus() {
   return useQuery({
-    queryKey: ["domain-sync"],
-    queryFn: () => api.domainSync(),
-    refetchInterval: enabled ? 5000 : false,
-    enabled,
+    queryKey: ["domain-status"],
+    queryFn: () => api.domainStatus(),
+    refetchInterval: 5000,
   });
 }
 
-export function useDomainSetOverride() {
+export function useDomainSetup() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ name, config }: { name: string; config: ContainerDomainOverride }) =>
-      api.domainSetOverride(name, config),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["domain-sync"] }),
+    mutationFn: (domain: string) => api.domainSetup(domain),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["domain-status"] }),
   });
 }
 
-export function useDomainRemoveOverride() {
+export function useDomainTeardown() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (name: string) => api.domainRemoveOverride(name),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["domain-sync"] }),
+    mutationFn: (domain: string) => api.domainTeardown(domain),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["domain-status"] }),
   });
 }

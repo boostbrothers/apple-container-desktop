@@ -10,14 +10,6 @@ export function useProjects() {
   });
 }
 
-export function useDevcontainerCliCheck() {
-  return useQuery({
-    queryKey: ["devcontainer-cli-check"],
-    queryFn: api.checkDevcontainerCli,
-    staleTime: 60_000,
-  });
-}
-
 export function useDetectProjectType(workspacePath: string) {
   return useQuery({
     queryKey: ["detect-project-type", workspacePath],
@@ -32,8 +24,6 @@ export function useAddProject() {
     mutationFn: (params: {
       name: string;
       workspacePath: string;
-      projectType: string;
-      composeFile?: string;
       dockerfile?: string;
     }) => api.addProject(params),
     onSuccess: () => {
