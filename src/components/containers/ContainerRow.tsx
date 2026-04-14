@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 import type {
   Container,
-  DomainServiceEntry,
   ContainerDomainOverride,
 } from "../../types";
 import { useContainerAction } from "../../hooks/useContainers";
@@ -42,7 +41,6 @@ interface ContainerRowProps {
   onInspect?: (id: string) => void;
   showServiceName?: boolean;
   compact?: boolean;
-  domainService?: DomainServiceEntry;
   domainOverride?: ContainerDomainOverride;
   domainEnabled?: boolean;
 }
@@ -53,7 +51,6 @@ export function ContainerRow({
   onInspect,
   showServiceName,
   compact,
-  domainService,
   domainOverride,
   domainEnabled,
 }: ContainerRowProps) {
@@ -61,10 +58,7 @@ export function ContainerRow({
   const openTerminal = useOpenTerminalExec();
   const [showDomainDialog, setShowDomainDialog] = useState(false);
   const isRunning = container.state === "running";
-  const displayName =
-    showServiceName && container.compose_service
-      ? container.compose_service
-      : container.name;
+  const displayName = container.name;
   const hostPorts = parseHostPorts(container.ports);
 
   return (
@@ -92,7 +86,7 @@ export function ContainerRow({
             {abbreviateImage(container.image)}
           </span>
         </div>
-        {(hostPorts.length > 0 || (domainEnabled && isRunning && domainService?.registered)) && (
+        {hostPorts.length > 0 && (
           <div className="flex items-center gap-1.5 mt-1">
             {hostPorts.slice(0, 3).map((port, i) => (
               <span
@@ -107,20 +101,11 @@ export function ContainerRow({
                 +{hostPorts.length - 3}
               </span>
             )}
-            {domainEnabled && isRunning && domainService?.registered && (
-              <button
-                className="text-[10px] font-mono text-emerald-500 hover:underline cursor-pointer bg-transparent border-none p-0"
-                onClick={() => setShowDomainDialog(true)}
-                title={`http://${domainService.domain}`}
-              >
-                {domainService.domain}
-              </button>
-            )}
           </div>
         )}
       </div>
 
-      {/* Action buttons — icon-only, secondary actions revealed on hover */}
+      {/* Action buttons */}
       <div className="flex items-center gap-0.5 shrink-0">
         {isRunning && domainEnabled && (
           <Button
@@ -128,7 +113,6 @@ export function ContainerRow({
             size="icon-xs"
             onClick={() => setShowDomainDialog(true)}
             title="Configure domain"
-            className={domainService?.registered ? "text-emerald-500" : ""}
           >
             <Globe className="h-3.5 w-3.5" />
           </Button>
@@ -217,7 +201,6 @@ export function ContainerRow({
         <ContainerDomainDialog
           containerName={container.name}
           override={domainOverride}
-          service={domainService}
           open={showDomainDialog}
           onClose={() => setShowDomainDialog(false)}
         />

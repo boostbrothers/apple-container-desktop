@@ -1,26 +1,23 @@
 import { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader2, Globe } from "lucide-react";
-import { useDomainConfig, useDomainSetConfig } from "../../hooks/useDomains";
-import { api } from "../../lib/tauri";
-import type { DomainConfig, ProxyStatus } from "../../types";
+import { useDomainConfig, useDomainSetConfig, useDomainStatus, useDomainSetup, useDomainTeardown } from "../../hooks/useDomains";
+import type { DomainConfig } from "../../types";
 
 export function ContainerDomainsSettings() {
   const { data: config, isLoading, error } = useDomainConfig();
   const saveMutation = useDomainSetConfig();
-  const queryClient = useQueryClient();
 
   const [enabled, setEnabled] = useState(false);
   const [autoRegister, setAutoRegister] = useState(true);
-  const [domainSuffix, setDomainSuffix] = useState("colima.local");
+  const [domainSuffix, setDomainSuffix] = useState("container.local");
 
   useEffect(() => {
     if (config) {
       setEnabled(config.enabled);
       setAutoRegister(config.auto_register);
-      setDomainSuffix(config.domain_suffix || "colima.local");
+      setDomainSuffix(config.domain_suffix || "container.local");
     }
   }, [config]);
 
@@ -29,7 +26,7 @@ export function ContainerDomainsSettings() {
     return (
       enabled !== config.enabled ||
       autoRegister !== config.auto_register ||
-      domainSuffix !== (config.domain_suffix || "colima.local")
+      domainSuffix !== (config.domain_suffix || "container.local")
     );
   })();
 
@@ -68,8 +65,8 @@ export function ContainerDomainsSettings() {
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Access containers via <code className="text-xs">http://name.colima.local</code> without
-        port numbers. Built-in DNS server and reverse proxy.
+        Access containers via <code className="text-xs">http://name.container.local</code> without
+        port numbers. Uses built-in DNS with Apple Container.
       </p>
 
       <div className="space-y-4">
@@ -101,7 +98,7 @@ export function ContainerDomainsSettings() {
             value={domainSuffix}
             onChange={(e) => setDomainSuffix(e.target.value)}
             disabled={saveMutation.isPending || !enabled}
-            placeholder="colima.local"
+            placeholder="container.local"
             className="font-mono text-sm"
           />
           <p className="text-[10px] text-muted-foreground">
@@ -125,123 +122,67 @@ export function ContainerDomainsSettings() {
         </Button>
       </div>
 
-      {enabled && <ProxySection />}
+      {enabled && <DnsSection domainSuffix={domainSuffix} />}
     </div>
   );
 }
 
-function ProxySection() {
-  const queryClient = useQueryClient();
+function DnsSection({ domainSuffix }: { domainSuffix: string }) {
+  const { data: status } = useDomainStatus();
+  const setupMutation = useDomainSetup();
+  const teardownMutation = useDomainTeardown();
 
-  const { data: status } = useQuery({
-    queryKey: ["proxy-status"],
-    queryFn: () => api.proxyGetStatus(),
-    refetchInterval: 5000,
-  });
-
-  const startProxy = useMutation({
-    mutationFn: () => api.proxyStart(),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["proxy-status"] }),
-  });
-  const stopProxy = useMutation({
-    mutationFn: () => api.proxyStop(),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["proxy-status"] }),
-  });
-  const installResolver = useMutation({
-    mutationFn: () => api.proxyInstallResolver(),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["proxy-status"] }),
-  });
-  const uninstallResolver = useMutation({
-    mutationFn: () => api.proxyUninstallResolver(),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["proxy-status"] }),
-  });
-
-  const running = status?.running ?? false;
-  const gwRunning = status?.gateway_running ?? false;
-  const resolverInstalled = status?.resolver_installed ?? false;
-  const routes = status?.routes ?? [];
-  const suffix = status?.domain_suffix ?? "colima.local";
+  const hasDns = status?.dns_domains && status.dns_domains.length > 0;
 
   return (
     <div className="space-y-4 border-t border-[var(--glass-border)] pt-4">
-      {/* DNS Resolver */}
+      {/* DNS Status */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className={`h-2 w-2 rounded-full ${resolverInstalled ? "bg-emerald-500" : "bg-muted-foreground/30"}`} />
-            <span className="text-sm font-medium">DNS Resolver</span>
+            <div className={`h-2 w-2 rounded-full ${hasDns ? "bg-emerald-500" : "bg-muted-foreground/30"}`} />
+            <span className="text-sm font-medium">DNS</span>
           </div>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() =>
-              resolverInstalled ? uninstallResolver.mutate() : installResolver.mutate()
-            }
-            disabled={installResolver.isPending || uninstallResolver.isPending}
-          >
-            {installResolver.isPending || uninstallResolver.isPending
-              ? "..."
-              : resolverInstalled
-                ? "Remove"
-                : "Install"}
-          </Button>
+          <div className="flex gap-1">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setupMutation.mutate(domainSuffix)}
+              disabled={setupMutation.isPending || teardownMutation.isPending}
+            >
+              {setupMutation.isPending ? "..." : "Setup DNS"}
+            </Button>
+            {hasDns && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => teardownMutation.mutate(domainSuffix)}
+                disabled={setupMutation.isPending || teardownMutation.isPending}
+              >
+                {teardownMutation.isPending ? "..." : "Remove"}
+              </Button>
+            )}
+          </div>
         </div>
         <p className="text-[10px] text-muted-foreground pl-4">
-          {resolverInstalled
-            ? `✓ /etc/resolver/${suffix} — *.${suffix} resolves locally`
-            : `Creates /etc/resolver/${suffix} (one-time admin password)`}
+          {hasDns
+            ? `DNS configured for: ${status?.dns_domains.join(", ")}`
+            : "Set up DNS to resolve container domains locally (requires admin password)"}
         </p>
       </div>
 
-      {/* Gateway */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className={`h-2 w-2 rounded-full ${gwRunning ? "bg-emerald-500" : running ? "bg-amber-500" : "bg-muted-foreground/30"}`} />
-            <span className="text-sm font-medium">Gateway</span>
-          </div>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => (running ? stopProxy.mutate() : startProxy.mutate())}
-            disabled={startProxy.isPending || stopProxy.isPending}
-          >
-            {startProxy.isPending || stopProxy.isPending ? "..." : running ? "Stop" : "Start"}
-          </Button>
-        </div>
-        <p className="text-[10px] text-muted-foreground pl-4">
-          {gwRunning
-            ? "✓ DNS :5553 + Traefik gateway :80 — containers routed via Docker network"
-            : running
-              ? "DNS running, gateway starting..."
-              : "Starts DNS server and Traefik gateway container"}
-        </p>
-      </div>
-
-      {/* Routes */}
-      {routes.length > 0 && (
-        <div className="glass-card p-3 space-y-1.5">
-          <div className="text-xs font-medium mb-1">Active Routes</div>
-          {routes.map((r) => (
-            <div key={r.domain} className="flex items-center justify-between text-xs">
-              <code className="text-[11px]">http://{r.domain}</code>
-              <span className="text-muted-foreground">→ {r.container_name}:{r.target_port}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {running && routes.length === 0 && (
-        <p className="text-[10px] text-muted-foreground">
-          No routes. Containers with exposed ports will be registered automatically.
-        </p>
-      )}
-
-      {installResolver.isError && (
+      {setupMutation.isError && (
         <p className="text-xs text-destructive">
-          {installResolver.error instanceof Error
-            ? installResolver.error.message
-            : "Failed to install resolver"}
+          {setupMutation.error instanceof Error
+            ? setupMutation.error.message
+            : "Failed to setup DNS"}
+        </p>
+      )}
+      {teardownMutation.isError && (
+        <p className="text-xs text-destructive">
+          {teardownMutation.error instanceof Error
+            ? teardownMutation.error.message
+            : "Failed to teardown DNS"}
         </p>
       )}
     </div>

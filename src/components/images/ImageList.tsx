@@ -39,7 +39,7 @@ export function ImageList() {
       </div>
       <div className="mb-4"><ImagePull /></div>
       {isLoading && <p className="text-sm text-muted-foreground">Loading...</p>}
-      {error && <p className="text-sm text-destructive">Failed to load images. Is Colima running?</p>}
+      {error && <p className="text-sm text-destructive">Failed to load images.</p>}
       <div className="flex flex-col gap-2">
         {images?.map((image) => <ImageRow key={image.id} image={image} />)}
         {images?.length === 0 && !isLoading && <p className="text-sm text-muted-foreground">No images found.</p>}

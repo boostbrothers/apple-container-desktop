@@ -1,22 +1,22 @@
 import { useEffect, useState } from "react";
 import { CheckCircle2, XCircle, Loader2, Copy, Check } from "lucide-react";
 import { api } from "../../lib/tauri";
-import type { ColimaInstallCheck } from "../../types";
+import type { ContainerInstallCheck } from "../../types";
 
-interface ColimaCheckStepProps {
+interface ContainerCheckStepProps {
   onNext: () => void;
   onSkip: () => void;
 }
 
-export function ColimaCheckStep({ onNext, onSkip }: ColimaCheckStepProps) {
+export function ContainerCheckStep({ onNext, onSkip }: ContainerCheckStepProps) {
   const [status, setStatus] = useState<"checking" | "installed" | "not-installed">("checking");
-  const [installInfo, setInstallInfo] = useState<ColimaInstallCheck | null>(null);
+  const [installInfo, setInstallInfo] = useState<ContainerInstallCheck | null>(null);
   const [copied, setCopied] = useState(false);
 
   const checkInstall = async () => {
     setStatus("checking");
     try {
-      const result = await api.checkColimaInstalled();
+      const result = await api.checkContainerInstalled();
       setInstallInfo(result);
       setStatus(result.installed ? "installed" : "not-installed");
     } catch {
@@ -29,7 +29,7 @@ export function ColimaCheckStep({ onNext, onSkip }: ColimaCheckStepProps) {
   }, []);
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText("brew install colima");
+    await navigator.clipboard.writeText("brew install container");
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -39,7 +39,7 @@ export function ColimaCheckStep({ onNext, onSkip }: ColimaCheckStepProps) {
       {status === "checking" && (
         <>
           <Loader2 className="h-12 w-12 animate-spin text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">Colima 설치 여부를 확인하고 있습니다...</p>
+          <p className="text-sm text-muted-foreground">Apple Container 설치 여부를 확인하고 있습니다...</p>
         </>
       )}
 
@@ -49,7 +49,7 @@ export function ColimaCheckStep({ onNext, onSkip }: ColimaCheckStepProps) {
             <CheckCircle2 className="h-8 w-8 text-[var(--status-running-text)]" />
           </div>
           <div className="space-y-2">
-            <h2 className="text-xl font-semibold text-foreground">Colima가 설치되어 있습니다</h2>
+            <h2 className="text-xl font-semibold text-foreground">Apple Container가 설치되어 있습니다</h2>
             {installInfo?.path && (
               <p className="text-xs text-muted-foreground font-mono">{installInfo.path}</p>
             )}
@@ -63,17 +63,17 @@ export function ColimaCheckStep({ onNext, onSkip }: ColimaCheckStepProps) {
             <XCircle className="h-8 w-8 text-destructive" />
           </div>
           <div className="space-y-2">
-            <h2 className="text-xl font-semibold text-foreground">Colima가 설치되지 않았습니다</h2>
+            <h2 className="text-xl font-semibold text-foreground">Apple Container가 설치되지 않았습니다</h2>
             <p className="text-sm text-muted-foreground">
-              아래 명령어로 Colima를 설치해주세요
+              아래 명령어로 Apple Container를 설치해주세요
             </p>
           </div>
           <div className="flex items-center gap-2 rounded-lg border border-[var(--glass-border)] bg-[var(--glass-bg)] px-4 py-2.5">
-            <code className="text-sm font-mono text-foreground">brew install colima</code>
+            <code className="text-sm font-mono text-foreground">brew install container</code>
             <button
               onClick={handleCopy}
               className="ml-2 rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground"
-              title="복사"
+              title="Copy"
             >
               {copied ? <Check className="h-4 w-4 text-[var(--status-running-text)]" /> : <Copy className="h-4 w-4" />}
             </button>

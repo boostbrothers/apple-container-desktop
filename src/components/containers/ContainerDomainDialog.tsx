@@ -4,15 +4,13 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { X, Globe, ExternalLink, Copy } from "lucide-react";
-import { useDomainSetOverride, useDomainRemoveOverride } from "../../hooks/useDomains";
-import type { ContainerDomainOverride, DomainServiceEntry } from "../../types";
+import type { ContainerDomainOverride } from "../../types";
 
-const DOMAIN_SUFFIX = "colima.local";
+const DOMAIN_SUFFIX = "container.local";
 
 interface ContainerDomainDialogProps {
   containerName: string;
   override?: ContainerDomainOverride;
-  service?: DomainServiceEntry;
   open: boolean;
   onClose: () => void;
 }
@@ -20,13 +18,9 @@ interface ContainerDomainDialogProps {
 export function ContainerDomainDialog({
   containerName,
   override,
-  service,
   open,
   onClose,
 }: ContainerDomainDialogProps) {
-  const setOverride = useDomainSetOverride();
-  const removeOverride = useDomainRemoveOverride();
-
   const [enabled, setEnabled] = useState(override?.enabled ?? true);
   const [hostname, setHostname] = useState(override?.hostname ?? "");
   const [port, setPort] = useState(override?.port?.toString() ?? "");
@@ -44,23 +38,6 @@ export function ContainerDomainDialog({
   const effectiveHostname = hostname || containerName;
   const domain = `${effectiveHostname}.${DOMAIN_SUFFIX}`;
   const url = `http://${domain}`;
-
-  const handleSave = () => {
-    setOverride.mutate({
-      name: containerName,
-      config: {
-        enabled,
-        hostname: hostname || null,
-        port: port ? parseInt(port, 10) : null,
-      },
-    });
-    onClose();
-  };
-
-  const handleRemove = () => {
-    removeOverride.mutate(containerName);
-    onClose();
-  };
 
   return createPortal(
     <div
@@ -128,49 +105,42 @@ export function ContainerDomainDialog({
                 className="h-8 text-xs font-mono"
               />
               <p className="text-[10px] text-muted-foreground">
-                The port your app listens on inside the container. Required for containers without <code className="text-[10px]">-p</code>.
+                The port your app listens on inside the container.
               </p>
             </div>
 
-            {/* Preview */}
-            {service?.registered && (
-              <div className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 flex items-center justify-between">
-                <code className="text-[11px] font-mono text-emerald-400">{url}</code>
-                <div className="flex gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6"
-                    onClick={() => navigator.clipboard.writeText(url)}
-                    title="Copy URL"
-                  >
-                    <Copy className="h-3 w-3" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6"
-                    onClick={() => openUrl(url)}
-                    title="Open in browser"
-                  >
-                    <ExternalLink className="h-3 w-3" />
-                  </Button>
-                </div>
+            {/* Preview URL */}
+            <div className="rounded-md bg-muted/20 border border-[var(--glass-border)] px-3 py-2 flex items-center justify-between">
+              <code className="text-[11px] font-mono text-muted-foreground">{url}</code>
+              <div className="flex gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={() => navigator.clipboard.writeText(url)}
+                  title="Copy URL"
+                >
+                  <Copy className="h-3 w-3" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={() => openUrl(url)}
+                  title="Open in browser"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                </Button>
               </div>
-            )}
+            </div>
           </>
         )}
 
         {/* Actions */}
         <div className="flex gap-2 pt-1">
-          <Button size="sm" onClick={handleSave} className="flex-1">
-            Save
+          <Button size="sm" onClick={onClose} className="flex-1">
+            Close
           </Button>
-          {override && (
-            <Button size="sm" variant="outline" onClick={handleRemove}>
-              Remove
-            </Button>
-          )}
         </div>
       </div>
     </div>,

@@ -5,10 +5,8 @@ import { ContainerList } from "../containers/ContainerList";
 import { ImageList } from "../images/ImageList";
 import { VolumeList } from "../volumes/VolumeList";
 import { NetworkList } from "../networks/NetworkList";
-import { VmSettings } from "../settings/VmSettings";
-import { MountSettings } from "../settings/MountSettings";
-import { NetworkSettingsPanel } from "../settings/NetworkSettingsPanel";
-import { DockerSettingsPanel } from "../settings/DockerSettingsPanel";
+import { ResourceSettingsPanel } from "../settings/ResourceSettingsPanel";
+import { RegistrySettingsPanel } from "../settings/RegistrySettingsPanel";
 import { UpdatePanel } from "../settings/UpdatePanel";
 import { AppearanceSettings } from "../settings/AppearanceSettings";
 import { TerminalSettings } from "../settings/TerminalSettings";
@@ -35,10 +33,8 @@ export function MainLayout() {
         {activePage === "volumes" && <VolumeList />}
         {activePage === "networks" && <NetworkList />}
         {activePage === "environment" && <EnvironmentPage />}
-        {activePage === "settings/vm" && <VmSettings />}
-        {activePage === "settings/mounts" && <MountSettings />}
-        {activePage === "settings/network" && <NetworkSettingsPanel />}
-        {activePage === "settings/docker" && <DockerSettingsPanel />}
+        {activePage === "settings/resources" && <ResourceSettingsPanel />}
+        {activePage === "settings/registry" && <RegistrySettingsPanel />}
         {activePage === "settings/domains" && <ContainerDomainsSettings />}
         {activePage === "settings/terminal" && <TerminalSettings />}
         {activePage === "settings/update" && <UpdatePanel />}

@@ -1,24 +1,18 @@
 import { useState, useMemo } from "react";
 import { useContainers, usePruneContainers } from "../../hooks/useContainers";
 import { useProjects } from "../../hooks/useProjects";
-import { useDomainConfig, useDomainSync } from "../../hooks/useDomains";
+import { useDomainConfig } from "../../hooks/useDomains";
 import { ContainerRow } from "./ContainerRow";
-import { ComposeGroup } from "./ComposeGroup";
 import { ContainerLogs } from "./ContainerLogs";
 import { ContainerRun } from "./ContainerRun";
 import { ContainerDetail } from "./ContainerDetail";
 import { ProjectsTab } from "./ProjectsTab";
 import { ProjectDetail } from "./ProjectDetail";
 import { Button } from "@/components/ui/button";
-import type { Container, Project, DomainServiceEntry } from "../../types";
+import type { Container, Project } from "../../types";
 
 type Filter = "all" | "running" | "stopped";
 type Tab = "running" | "projects";
-
-interface ComposeGroupData {
-  project: string;
-  containers: Container[];
-}
 
 interface ContainerListProps {
   composeFilter?: string | null;
@@ -38,7 +32,6 @@ export function ContainerList({ composeFilter }: ContainerListProps) {
     [allProjects, selectedProjectId]
   );
   const { data: domainConfig } = useDomainConfig();
-  const { data: domainSync } = useDomainSync(domainConfig?.enabled ?? false);
 
   const stoppedCount = useMemo(() =>
     containers?.filter((c) => c.state !== "running").length ?? 0,
@@ -49,41 +42,9 @@ export function ContainerList({ composeFilter }: ContainerListProps) {
     return containers.filter((c) => {
       if (filter === "running" && c.state !== "running") return false;
       if (filter === "stopped" && c.state === "running") return false;
-      if (composeFilter && c.compose_project !== composeFilter) return false;
       return true;
     });
-  }, [containers, filter, composeFilter]);
-
-  const { composeGroups, standalone } = useMemo(() => {
-    const groupMap = new Map<string, Container[]>();
-    const standalone: Container[] = [];
-
-    for (const c of filtered) {
-      if (c.compose_project) {
-        const group = groupMap.get(c.compose_project) ?? [];
-        group.push(c);
-        groupMap.set(c.compose_project, group);
-      } else {
-        standalone.push(c);
-      }
-    }
-
-    const composeGroups: ComposeGroupData[] = Array.from(groupMap.entries()).map(
-      ([project, containers]) => ({ project, containers })
-    );
-
-    return { composeGroups, standalone };
-  }, [filtered]);
-
-  const domainServiceMap = useMemo(() => {
-    const map = new Map<string, DomainServiceEntry>();
-    if (domainSync?.services) {
-      for (const svc of domainSync.services) {
-        map.set(svc.container_name, svc);
-      }
-    }
-    return map;
-  }, [domainSync]);
+  }, [containers, filter]);
 
   if (selectedProject) {
     return <ProjectDetail project={selectedProject} onBack={() => setSelectedProjectId(null)} />;
@@ -147,31 +108,19 @@ export function ContainerList({ composeFilter }: ContainerListProps) {
           </div>
           <div className="mb-4"><ContainerRun /></div>
           {isLoading && <p className="text-sm text-muted-foreground">Loading...</p>}
-          {error && <p className="text-sm text-destructive">Failed to load containers. Is Colima running?</p>}
+          {error && <p className="text-sm text-destructive">Failed to load containers.</p>}
           <div className="flex flex-col gap-2">
-            {composeGroups.map((group) => (
-              <ComposeGroup
-                key={group.project}
-                project={group.project}
-                containers={group.containers}
-                onViewLogs={setLogsContainerId}
-                onInspect={setInspectId}
-                domainServiceMap={domainServiceMap}
-                domainConfig={domainConfig}
-              />
-            ))}
-            {standalone.map((container) => (
+            {filtered.map((container) => (
               <ContainerRow
                 key={container.id}
                 container={container}
                 onViewLogs={setLogsContainerId}
                 onInspect={setInspectId}
-                domainService={domainServiceMap.get(container.name)}
                 domainOverride={domainConfig?.container_overrides?.[container.name]}
                 domainEnabled={domainConfig?.enabled}
               />
             ))}
-            {composeGroups.length === 0 && standalone.length === 0 && !isLoading && (
+            {filtered.length === 0 && !isLoading && (
               <p className="text-sm text-muted-foreground">No containers found.</p>
             )}
           </div>

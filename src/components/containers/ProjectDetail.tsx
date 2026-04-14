@@ -9,13 +9,11 @@ import {
   Save,
   Loader2,
   Bug,
-  Eye,
   Play,
   Square,
   RotateCw,
   Copy,
   SquareTerminal,
-  Settings,
 } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
 import type { Project } from "../../types";
@@ -24,7 +22,6 @@ import {
   useProjectAction,
   useOpenTerminalExec,
 } from "../../hooks/useProjects";
-import { DevcontainerConfigEditor } from "../devcontainer-config/DevcontainerConfigEditor";
 import { EnvironmentTab } from "../env/EnvironmentTab";
 import { ProjectEnvSelector } from "../environment/ProjectEnvSelector";
 
@@ -40,7 +37,6 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
 
   const [dotenvPath, setDotenvPath] = useState(project.dotenv_path || "");
   const [envCommand, setEnvCommand] = useState(project.env_command || "");
-  const [watchMode, setWatchMode] = useState(project.watch_mode);
   const [remoteDebug, setRemoteDebug] = useState(project.remote_debug);
   const [debugPort, setDebugPort] = useState(project.debug_port);
   const [ports, setPorts] = useState<string[]>(project.ports.length > 0 ? project.ports : [""]);
@@ -49,21 +45,19 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
   const [hasChanges, setHasChanges] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
   const [isRunning, setIsRunning] = useState(false);
-  const [showConfig, setShowConfig] = useState(false);
 
   // Track changes
   useEffect(() => {
     const changed =
       dotenvPath !== (project.dotenv_path || "") ||
       envCommand !== (project.env_command || "") ||
-      watchMode !== project.watch_mode ||
       remoteDebug !== project.remote_debug ||
       debugPort !== project.debug_port ||
       JSON.stringify(ports.filter(Boolean)) !== JSON.stringify(project.ports) ||
       startupCommand !== (project.startup_command || "") ||
       domain !== (project.domain || "");
     setHasChanges(changed);
-  }, [dotenvPath, envCommand, watchMode, remoteDebug, debugPort, ports, startupCommand, domain, project]);
+  }, [dotenvPath, envCommand, remoteDebug, debugPort, ports, startupCommand, domain, project]);
 
   // Listen for logs
   useEffect(() => {
@@ -90,12 +84,9 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
     env_vars: project.env_vars,
     dotenv_path: dotenvPath || null,
     env_command: envCommand || null,
-    watch_mode: watchMode,
     remote_debug: remoteDebug,
     debug_port: debugPort,
-    compose_file: project.compose_file,
     dockerfile: project.dockerfile,
-    service_name: project.service_name,
     ports: ports.filter(Boolean),
     startup_command: startupCommand || null,
     active_profile: project.active_profile,
@@ -128,35 +119,13 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
     );
   };
 
-  const typeLabel = {
-    compose: "Docker Compose",
-    dockerfile: "Dockerfile",
-    devcontainer: "DevContainer",
-  }[project.project_type] ?? project.project_type;
+  const typeLabel = "Dockerfile";
 
   const disabled = action.isPending || isRunning;
 
-  if (showConfig && project.project_type === "devcontainer") {
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => setShowConfig(false)} className="h-8 w-8">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <h1 className="text-lg font-semibold">DevContainer Config</h1>
-        </div>
-        <DevcontainerConfigEditor
-          workspacePath={project.workspace_path}
-          projectName={project.name}
-          onClose={() => setShowConfig(false)}
-        />
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-4">
-      {/* Header — sticky */}
+      {/* Header -- sticky */}
       <div className="sticky -top-4 z-20 -mx-4 -mt-4 px-4 pt-4 pb-3 glass-panel border-b border-[var(--glass-border)]">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={onBack} className="h-8 w-8">
@@ -182,12 +151,6 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
             </span>
           </div>
           <div className="flex gap-1 shrink-0">
-            {project.project_type === "devcontainer" && (
-              <Button size="sm" variant="outline" onClick={() => setShowConfig(true)}>
-                <Settings className="h-3.5 w-3.5 mr-1" />
-                Config
-              </Button>
-            )}
             {project.status === "running" ? (
               <>
                 <Button
@@ -225,50 +188,22 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
           <h3 className="text-sm font-semibold">Domain</h3>
           <div className="space-y-2">
             <Input
-              placeholder="e.g. dd-auth"
+              placeholder="e.g. my-app"
               value={domain}
               onChange={(e) => setDomain(e.target.value)}
               className="h-7 text-xs font-mono"
             />
             <p className="text-[10px] text-muted-foreground">
               {domain
-                ? <>Access via <code className="text-[10px]">http://{domain}.colima.local</code> when gateway is running</>
+                ? <>Access via <code className="text-[10px]">http://{domain}.container.local</code> when DNS is configured</>
                 : "Set a hostname to access this project via Container Domains"}
             </p>
           </div>
         </div>
 
-        {/* Watch Mode & Remote Debug */}
+        {/* Execution Options */}
         <div className="glass-panel rounded-lg p-4 space-y-3">
           <h3 className="text-sm font-semibold">Execution Options</h3>
-
-          <label className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Eye className="h-4 w-4 text-muted-foreground" />
-              <div>
-                <span className="text-sm">Watch Mode</span>
-                <p className="text-[11px] text-muted-foreground">
-                  {project.project_type === "compose"
-                    ? "Run with docker compose --watch for live sync"
-                    : "Monitor file changes and restart automatically"}
-                </p>
-              </div>
-            </div>
-            <button
-              className={`relative h-5 w-9 rounded-full transition-colors ${
-                watchMode ? "bg-primary" : "bg-muted"
-              }`}
-              onClick={() => setWatchMode(!watchMode)}
-            >
-              <span
-                className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white transition-transform ${
-                  watchMode ? "translate-x-4" : ""
-                }`}
-              />
-            </button>
-          </label>
-
-          <div className="border-t border-[var(--glass-border)]" />
 
           <label className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -346,36 +281,24 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
             ))}
             <p className="text-[10px] text-muted-foreground">
               host:container format (e.g. 3000:3000, 5432:5432)
-              {project.project_type === "compose" && " — Added on top of ports defined in compose YAML."}
             </p>
           </div>
 
           <div className="border-t border-[var(--glass-border)]" />
 
-          {/* Startup Command -- show only for dockerfile type */}
-          {project.project_type === "dockerfile" && (
-            <div className="space-y-2">
-              <span className="text-sm">Startup Command</span>
-              <Input
-                placeholder="e.g. npm run dev, python manage.py runserver"
-                value={startupCommand}
-                onChange={(e) => setStartupCommand(e.target.value)}
-                className="h-7 text-xs font-mono"
-              />
-              <p className="text-[10px] text-muted-foreground">
-                Override the default container CMD.
-              </p>
-            </div>
-          )}
-
-          {/* Compose-specific notes */}
-          {project.project_type === "compose" && (
-            <div className="rounded-md bg-muted/20 px-3 py-2">
-              <p className="text-[10px] text-muted-foreground">
-                For Compose projects, configure commands and services in your docker-compose.yml.
-              </p>
-            </div>
-          )}
+          {/* Startup Command */}
+          <div className="space-y-2">
+            <span className="text-sm">Startup Command</span>
+            <Input
+              placeholder="e.g. npm run dev, python manage.py runserver"
+              value={startupCommand}
+              onChange={(e) => setStartupCommand(e.target.value)}
+              className="h-7 text-xs font-mono"
+            />
+            <p className="text-[10px] text-muted-foreground">
+              Override the default container CMD.
+            </p>
+          </div>
         </div>
 
         {/* Environment Variables */}
@@ -391,7 +314,7 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
         {hasChanges && project.status === "running" && (
           <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 flex items-center justify-between gap-3">
             <p className="text-xs text-amber-200/90">
-              Settings changed — rebuild required to apply.
+              Settings changed -- rebuild required to apply.
             </p>
             <Button
               size="sm"

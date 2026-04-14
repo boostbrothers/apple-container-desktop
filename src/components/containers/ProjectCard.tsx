@@ -69,11 +69,7 @@ export function ProjectCard({ project, onSelect }: ProjectCardProps) {
     });
   };
 
-  const typeLabel = {
-    compose: "Compose",
-    dockerfile: "Dockerfile",
-    devcontainer: "DevContainer",
-  }[project.project_type] ?? project.project_type;
+  const typeLabel = "Dockerfile";
 
   const statusBadge = () => {
     switch (project.status) {
@@ -127,14 +123,6 @@ export function ProjectCard({ project, onSelect }: ProjectCardProps) {
               {typeLabel}
             </Badge>
             {statusBadge()}
-            {project.watch_mode && (
-              <Badge
-                variant="outline"
-                className="text-[10px] px-1.5 bg-blue-500/10 text-blue-400 border-blue-500/20"
-              >
-                Watch
-              </Badge>
-            )}
             {project.remote_debug && (
               <Badge
                 variant="outline"
