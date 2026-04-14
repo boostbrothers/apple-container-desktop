@@ -4,9 +4,6 @@ pub mod crypto;
 pub mod proxy;
 mod tray;
 
-use std::sync::Arc;
-use tauri::Manager;
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -14,12 +11,13 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_liquid_glass::init())
-        .manage(commands::proxy::ProxyState::new())
         .invoke_handler(tauri::generate_handler![
-            commands::colima::colima_status,
-            commands::colima::colima_start,
-            commands::colima::colima_stop,
-            commands::colima::colima_restart,
+            // System
+            commands::system::system_status,
+            commands::system::system_start,
+            commands::system::system_stop,
+            commands::system::system_restart,
+            // Containers
             commands::container::list_containers,
             commands::container::container_start,
             commands::container::container_stop,
@@ -30,37 +28,33 @@ pub fn run() {
             commands::container::run_container,
             commands::container::container_inspect,
             commands::container::container_stats,
+            // Images
             commands::image::list_images,
             commands::image::pull_image,
             commands::image::remove_image,
             commands::image::prune_images,
-            commands::vm_settings::get_vm_settings,
-            commands::vm_settings::get_host_info,
-            commands::vm_settings::apply_vm_settings,
+            // Resource Settings
+            commands::resource_settings::get_resource_settings,
+            commands::resource_settings::get_host_info,
+            commands::resource_settings::apply_resource_settings,
+            // Volumes
             commands::volume::list_volumes,
             commands::volume::create_volume,
             commands::volume::remove_volume,
             commands::volume::prune_volumes,
+            // Networks
             commands::network::list_networks,
             commands::network::create_network,
             commands::network::remove_network,
             commands::network::prune_networks,
-            commands::mounts::get_mount_settings,
-            commands::mounts::save_mount_settings,
-            commands::network_settings::get_network_settings,
-            commands::network_settings::save_network_settings,
-            commands::docker_settings::get_docker_settings,
-            commands::docker_settings::save_docker_settings,
-            commands::update::get_colima_version,
-            commands::update::update_colima_runtime,
-            commands::update::check_latest_version,
-            commands::project::check_devcontainer_cli,
-            commands::project_config::read_devcontainer_json,
-            commands::project_config::write_devcontainer_json,
-            commands::project_config::validate_devcontainer_json,
-            commands::onboarding::check_colima_installed,
-            commands::onboarding::check_onboarding_needed,
-            commands::onboarding::complete_onboarding,
+            // Registry Settings
+            commands::registry_settings::get_registry_settings,
+            commands::registry_settings::registry_login,
+            commands::registry_settings::registry_logout,
+            commands::registry_settings::set_default_registry,
+            // Update
+            commands::update::get_container_version,
+            // Projects
             commands::project::detect_project_type,
             commands::project::list_projects,
             commands::project::add_project,
@@ -73,6 +67,11 @@ pub fn run() {
             commands::project::load_dotenv_file,
             commands::project::run_env_command,
             commands::project::open_terminal_exec,
+            // Onboarding
+            commands::onboarding::check_container_installed,
+            commands::onboarding::check_onboarding_needed,
+            commands::onboarding::complete_onboarding,
+            // Project Env Secrets
             commands::env_secrets::create_profile,
             commands::env_secrets::delete_profile,
             commands::env_secrets::switch_profile,
@@ -101,36 +100,18 @@ pub fn run() {
             commands::env_store::get_resolved_env_vars,
             commands::env_store::decrypt_global_env_secret,
             commands::env_store::decrypt_project_env_secret,
+            // App Settings
             commands::app_settings::get_app_settings,
             commands::app_settings::save_app_settings,
-            // Container Domains (DNS + Traefik Gateway)
+            // Container Domains (Apple Container built-in DNS)
             commands::proxy::domain_get_config,
             commands::proxy::domain_set_config,
-            commands::proxy::domain_set_override,
-            commands::proxy::domain_remove_override,
-            commands::proxy::domain_sync,
-            commands::proxy::proxy_start,
-            commands::proxy::proxy_stop,
-            commands::proxy::proxy_get_status,
-            commands::proxy::proxy_install_resolver,
-            commands::proxy::proxy_uninstall_resolver,
+            commands::proxy::domain_setup,
+            commands::proxy::domain_teardown,
+            commands::proxy::domain_status,
         ])
         .setup(|app| {
             tray::create_tray(app)?;
-
-            // Auto-start DNS + Gateway
-            let state = app.state::<commands::proxy::ProxyState>();
-            let dns_table = Arc::clone(&state.dns_table);
-            let dns_shutdown = Arc::clone(&state.dns_shutdown);
-            let running = Arc::clone(&state.running);
-            tauri::async_runtime::spawn(async move {
-                if let Err(e) =
-                    commands::proxy::start_proxy_services(dns_table, dns_shutdown, running).await
-                {
-                    eprintln!("Auto-start proxy failed: {}", e);
-                }
-            });
-
             Ok(())
         })
         .on_window_event(|window, event| {
