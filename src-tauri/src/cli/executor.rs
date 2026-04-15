@@ -70,6 +70,36 @@ impl CliExecutor {
         }
         Ok(results)
     }
+
+    /// Parse CLI output as a JSON array (e.g. `[{...}, {...}]`).
+    /// Falls back to JSON-lines parsing if the output is not a JSON array.
+    pub async fn run_json_array<T: serde::de::DeserializeOwned>(
+        program: &str,
+        args: &[&str],
+    ) -> Result<Vec<T>, String> {
+        let stdout = Self::run(program, args).await?;
+        let trimmed = stdout.trim();
+        if trimmed.is_empty() {
+            return Ok(Vec::new());
+        }
+        // Try parsing as a JSON array first
+        if trimmed.starts_with('[') {
+            return serde_json::from_str::<Vec<T>>(trimmed)
+                .map_err(|e| format!("JSON array parse error: {}", e));
+        }
+        // Fall back to JSON-lines
+        let mut results = Vec::new();
+        for line in trimmed.lines() {
+            let line = line.trim();
+            if line.is_empty() {
+                continue;
+            }
+            let item: T = serde_json::from_str(line)
+                .map_err(|e| format!("JSON parse error: {} for line: {}", e, line))?;
+            results.push(item);
+        }
+        Ok(results)
+    }
 }
 
 /// Find a binary by checking common install paths.

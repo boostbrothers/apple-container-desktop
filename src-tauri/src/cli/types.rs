@@ -1,29 +1,53 @@
 use serde::{Deserialize, Serialize};
 
+/// Raw JSON from `container list --format json`.
+/// Each line is a nested object: { status, startedDate, configuration: { id, image, ... }, networks: [...] }
 #[derive(Debug, Deserialize)]
-#[serde(default)]
 pub struct ContainerListEntry {
-    pub id: String,
-    pub name: String,
-    pub image: String,
-    pub state: String,
+    #[serde(default)]
     pub status: String,
-    pub ports: String,
-    pub created_at: String,
+    #[serde(default, rename = "startedDate")]
+    pub started_date: Option<f64>,
+    #[serde(default)]
+    pub configuration: Option<ContainerListConfig>,
+    #[serde(default)]
+    pub networks: Vec<ContainerListNetwork>,
 }
 
-impl Default for ContainerListEntry {
-    fn default() -> Self {
-        ContainerListEntry {
-            id: String::new(),
-            name: String::new(),
-            image: String::new(),
-            state: String::new(),
-            status: String::new(),
-            ports: String::new(),
-            created_at: String::new(),
-        }
-    }
+#[derive(Debug, Deserialize)]
+pub struct ContainerListConfig {
+    #[serde(default)]
+    pub id: String,
+    #[serde(default)]
+    pub image: Option<ContainerListImage>,
+    #[serde(default, rename = "publishedPorts")]
+    pub published_ports: Vec<ContainerListPort>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ContainerListImage {
+    #[serde(default)]
+    pub reference: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ContainerListPort {
+    #[serde(default, rename = "containerPort")]
+    pub container_port: u16,
+    #[serde(default, rename = "hostPort")]
+    pub host_port: u16,
+    #[serde(default)]
+    pub protocol: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ContainerListNetwork {
+    #[serde(default)]
+    pub network: String,
+    #[serde(default)]
+    pub hostname: String,
+    #[serde(default, rename = "ipv4Address")]
+    pub ipv4_address: String,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -39,38 +63,106 @@ pub struct Container {
 
 impl From<ContainerListEntry> for Container {
     fn from(entry: ContainerListEntry) -> Self {
+        let config = entry.configuration.unwrap_or(ContainerListConfig {
+            id: String::new(),
+            image: None,
+            published_ports: Vec::new(),
+        });
+        let id = config.id.clone();
+        let name = config.id;
+        let image = config
+            .image
+            .map(|img| img.reference)
+            .unwrap_or_default();
+
+        // CLI "status" field maps to our "state" (running / stopped / etc.)
+        let state = entry.status.clone();
+
+        // Build human-readable status from state + startedDate
+        let status = if entry.status == "running" {
+            if let Some(abs_time) = entry.started_date {
+                // CFAbsoluteTime: seconds since 2001-01-01T00:00:00Z
+                // Unix epoch offset = 978307200
+                let unix_ts = abs_time + 978_307_200.0;
+                let secs = unix_ts as i64;
+                let now = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs() as i64;
+                let diff = now - secs;
+                let human = if diff < 60 {
+                    format!("{}s", diff)
+                } else if diff < 3600 {
+                    format!("{}m", diff / 60)
+                } else if diff < 86400 {
+                    format!("{}h", diff / 3600)
+                } else {
+                    format!("{}d", diff / 86400)
+                };
+                format!("Up {}", human)
+            } else {
+                "Up".to_string()
+            }
+        } else {
+            entry.status.clone()
+        };
+
+        // Format ports like "0.0.0.0:8080->80/tcp"
+        let ports = config
+            .published_ports
+            .iter()
+            .map(|p| {
+                let proto = if p.protocol.is_empty() {
+                    "tcp"
+                } else {
+                    &p.protocol
+                };
+                format!("0.0.0.0:{}->{}/{}", p.host_port, p.container_port, proto)
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        let created_at = entry
+            .started_date
+            .map(|t| {
+                let unix_ts = (t + 978_307_200.0) as i64;
+                // ISO 8601 basic
+                format!("{}", unix_ts)
+            })
+            .unwrap_or_default();
+
         Container {
-            id: entry.id,
-            name: entry.name,
-            image: entry.image,
-            state: entry.state,
-            status: entry.status,
-            ports: entry.ports,
-            created_at: entry.created_at,
+            id,
+            name,
+            image,
+            state,
+            status,
+            ports,
+            created_at,
         }
     }
+}
+
+/// Raw JSON from `container image list --format json`.
+/// Each entry: { reference, fullSize, descriptor: { digest, size, mediaType } }
+#[derive(Debug, Deserialize)]
+pub struct ImageListEntry {
+    #[serde(default)]
+    pub reference: String,
+    #[serde(default, rename = "fullSize")]
+    pub full_size: String,
+    #[serde(default)]
+    pub descriptor: Option<ImageDescriptor>,
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(default)]
-pub struct ImageListEntry {
-    pub id: String,
-    pub repository: String,
-    pub tag: String,
-    pub size: String,
-    pub created_at: String,
-}
-
-impl Default for ImageListEntry {
-    fn default() -> Self {
-        ImageListEntry {
-            id: String::new(),
-            repository: String::new(),
-            tag: String::new(),
-            size: String::new(),
-            created_at: String::new(),
-        }
-    }
+pub struct ImageDescriptor {
+    #[serde(default)]
+    pub digest: String,
+    #[serde(default)]
+    pub size: u64,
+    #[serde(default, rename = "mediaType")]
+    pub media_type: String,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -85,12 +177,39 @@ pub struct Image {
 
 impl From<ImageListEntry> for Image {
     fn from(entry: ImageListEntry) -> Self {
+        // Parse "docker.io/library/node:24-alpine" → repository + tag
+        let (repository, tag) = if let Some(idx) = entry.reference.rfind(':') {
+            let repo = &entry.reference[..idx];
+            let tag = &entry.reference[idx + 1..];
+            // Avoid splitting on the port part of a registry URL (e.g., localhost:5000/img)
+            if tag.contains('/') {
+                (entry.reference.clone(), "latest".to_string())
+            } else {
+                (repo.to_string(), tag.to_string())
+            }
+        } else {
+            (entry.reference.clone(), "latest".to_string())
+        };
+
+        let id = entry
+            .descriptor
+            .as_ref()
+            .map(|d| {
+                d.digest
+                    .strip_prefix("sha256:")
+                    .unwrap_or(&d.digest)
+                    .chars()
+                    .take(12)
+                    .collect::<String>()
+            })
+            .unwrap_or_default();
+
         Image {
-            id: entry.id,
-            repository: entry.repository,
-            tag: entry.tag,
-            size: entry.size,
-            created_at: entry.created_at,
+            id,
+            repository,
+            tag,
+            size: entry.full_size,
+            created_at: String::new(),
             in_use: false,
         }
     }
@@ -161,21 +280,34 @@ impl From<VolumeListEntry> for Volume {
     }
 }
 
+/// Apple Container `network list --format json` entry.
+/// Structure: {"id":"...","state":"...","config":{"id":"...","pluginInfo":{...},"mode":"nat","labels":{...}},"status":{...}}
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "PascalCase")]
 pub struct NetworkListEntry {
-    #[serde(rename = "ID")]
     pub id: String,
-    pub name: String,
-    pub driver: String,
-    pub scope: String,
-    #[serde(rename = "IPv6")]
     #[serde(default)]
-    pub ipv6: String,
+    pub state: String,
     #[serde(default)]
-    pub internal: String,
+    pub config: Option<NetworkConfig>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct NetworkConfig {
     #[serde(default)]
-    pub labels: String,
+    pub mode: String,
+    #[serde(default, rename = "pluginInfo")]
+    pub plugin_info: Option<NetworkPluginInfo>,
+    #[serde(default)]
+    pub labels: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[allow(dead_code)]
+pub struct NetworkPluginInfo {
+    #[serde(default)]
+    pub plugin: String,
+    #[serde(default)]
+    pub variant: String,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -191,14 +323,27 @@ pub struct Network {
 
 impl From<NetworkListEntry> for Network {
     fn from(entry: NetworkListEntry) -> Self {
+        let config = entry.config.unwrap_or(NetworkConfig {
+            mode: String::new(),
+            plugin_info: None,
+            labels: None,
+        });
+        let driver = config
+            .plugin_info
+            .map(|p| p.plugin.clone())
+            .unwrap_or_else(|| config.mode.clone());
+        let labels = config
+            .labels
+            .map(|l| l.to_string())
+            .unwrap_or_default();
         Network {
-            id: entry.id,
-            name: entry.name,
-            driver: entry.driver,
-            scope: entry.scope,
-            ipv6: entry.ipv6 == "true",
-            internal: entry.internal == "true",
-            labels: entry.labels,
+            id: entry.id.clone(),
+            name: entry.id,
+            driver,
+            scope: entry.state,
+            ipv6: false,
+            internal: false,
+            labels,
         }
     }
 }
@@ -251,6 +396,60 @@ pub struct ContainerStats {
     pub net_io: String,
     pub block_io: String,
     pub pids: String,
+}
+
+// Service definition for multi-container projects
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Service {
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub image: Option<String>,
+    #[serde(default)]
+    pub dockerfile: Option<String>,
+    #[serde(default)]
+    pub ports: Vec<String>,
+    #[serde(default)]
+    pub volumes: Option<Vec<VolumeMount>>,
+    #[serde(default)]
+    pub watch_mode: Option<bool>,
+    #[serde(default)]
+    pub startup_command: Option<String>,
+    #[serde(default)]
+    pub remote_debug: Option<bool>,
+    #[serde(default)]
+    pub debug_port: Option<u16>,
+    #[serde(default)]
+    pub env_vars: Vec<EnvVarEntry>,
+    #[serde(default)]
+    pub network: Option<String>,
+    #[serde(default)]
+    pub restart: Option<String>,  // "no" | "always" | "on-failure" | "unless-stopped"
+    #[serde(default)]
+    pub depends_on: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ServiceStatus {
+    pub service_id: String,
+    pub service_name: String,
+    pub status: String, // "running" | "stopped" | "not_created"
+    pub container_id: Option<String>,
+}
+
+// Project-level network/volume definitions (created on project_up)
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ProjectNetwork {
+    pub name: String,
+    #[serde(default)]
+    pub driver: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct NamedVolume {
+    pub name: String,
+    #[serde(default)]
+    pub driver: Option<String>,
 }
 
 // Volume mount for project containers
@@ -397,6 +596,12 @@ pub struct Project {
     pub volumes: Vec<VolumeMount>,
     #[serde(default = "default_true")]
     pub watch_mode: bool,
+    #[serde(default)]
+    pub services: Vec<Service>,
+    #[serde(default, alias = "compose_networks")]
+    pub project_networks: Vec<ProjectNetwork>,
+    #[serde(default, alias = "compose_volumes")]
+    pub named_volumes: Vec<NamedVolume>,
 }
 
 fn default_debug_port() -> u16 {
@@ -431,12 +636,21 @@ pub struct ProjectWithStatus {
     pub init_commands: Vec<String>,
     pub volumes: Vec<VolumeMount>,
     pub watch_mode: bool,
+    pub services: Vec<Service>,
+    pub project_networks: Vec<ProjectNetwork>,
+    pub named_volumes: Vec<NamedVolume>,
+    pub service_statuses: Vec<ServiceStatus>,
     pub status: String,
     pub container_ids: Vec<String>,
 }
 
 impl Project {
-    pub fn with_status(self, status: String, container_ids: Vec<String>) -> ProjectWithStatus {
+    pub fn with_status(
+        self,
+        status: String,
+        container_ids: Vec<String>,
+        service_statuses: Vec<ServiceStatus>,
+    ) -> ProjectWithStatus {
         ProjectWithStatus {
             id: self.id,
             name: self.name,
@@ -460,6 +674,10 @@ impl Project {
             init_commands: self.init_commands,
             volumes: self.volumes,
             watch_mode: self.watch_mode,
+            services: self.services,
+            project_networks: self.project_networks,
+            named_volumes: self.named_volumes,
+            service_statuses,
             status,
             container_ids,
         }

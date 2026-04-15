@@ -3,8 +3,14 @@ use crate::cli::types::{NetworkListEntry, Network};
 
 #[tauri::command]
 pub async fn list_networks() -> Result<Vec<Network>, String> {
-    let entries: Vec<NetworkListEntry> =
-        CliExecutor::run_json_lines(container_cmd(), &["network", "list", "--format", "json"]).await?;
+    let stdout = CliExecutor::run(container_cmd(), &["network", "list", "--format", "json"]).await?;
+    let trimmed = stdout.trim();
+    if trimmed.is_empty() {
+        return Ok(Vec::new());
+    }
+    // Apple Container returns a JSON array
+    let entries: Vec<NetworkListEntry> = serde_json::from_str(trimmed)
+        .map_err(|e| format!("Failed to parse network list: {}", e))?;
     Ok(entries.into_iter().map(Network::from).collect())
 }
 

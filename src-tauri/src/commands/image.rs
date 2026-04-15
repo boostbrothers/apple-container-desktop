@@ -7,7 +7,7 @@ use tokio::process::Command;
 #[tauri::command]
 pub async fn list_images() -> Result<Vec<Image>, String> {
     let entries: Vec<ImageListEntry> =
-        CliExecutor::run_json_lines(container_cmd(), &["image", "list", "--format", "json"]).await?;
+        CliExecutor::run_json_array(container_cmd(), &["image", "list", "--format", "json"]).await?;
     Ok(entries.into_iter().map(Image::from).collect())
 }
 

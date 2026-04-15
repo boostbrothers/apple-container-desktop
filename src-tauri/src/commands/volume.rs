@@ -4,7 +4,7 @@ use crate::cli::types::{VolumeListEntry, Volume};
 #[tauri::command]
 pub async fn list_volumes() -> Result<Vec<Volume>, String> {
     let entries: Vec<VolumeListEntry> =
-        CliExecutor::run_json_lines(container_cmd(), &["volume", "list", "--format", "json"]).await?;
+        CliExecutor::run_json_array(container_cmd(), &["volume", "list", "--format", "json"]).await?;
     Ok(entries.into_iter().map(Volume::from).collect())
 }
 
