@@ -84,7 +84,7 @@ npm run build           # Frontend-only build (tsc + vite)
 - **Environment Management**: 글로벌/프로젝트별 환경변수 프로파일, Infisical 연동, AES-GCM 암호화
 - **Project Types**: Dockerfile, Docker Compose, DevContainer 3가지 프로젝트 타입 지원 (자동 감지)
 - App icon derived from official Colima SVG logo vector (white llama silhouette + green Docker containers on dark background)
-- CI/CD: GitHub Actions with `tauri-action` for cross-platform builds (macOS aarch64/x86_64, Linux, Windows)
+- CI/CD: GitHub Actions with `tauri-action` for macOS builds (aarch64 Apple Silicon only)
 
 ## Frontend Design Guidelines
 
@@ -96,7 +96,7 @@ npm run build           # Frontend-only build (tsc + vite)
 ## Release Process
 
 1. Tag: `git tag v0.x.x && git push origin v0.x.x`
-2. GitHub Actions builds macOS (aarch64, x86_64), Linux, Windows
+2. GitHub Actions builds macOS (aarch64 Apple Silicon only)
 3. Draft release is created, assets uploaded, then published automatically
 4. `latest.json` is generated for auto-updater
 5. Pre-release tags (`-alpha`, `-beta`, `-rc`) skip Windows build and update beta channel
