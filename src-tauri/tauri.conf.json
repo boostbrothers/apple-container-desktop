@@ -37,7 +37,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEE3NDAzREMxMjYzNjJBQjEKUldTeEtqWW13VDFBcDFGWTRia05GSVV0T0lMQWIrRGMvK0hHcHA4d3cxZnIybm9UNW1jRGo5VSsK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEIxQkRDREMxNTZGODUyMTIKUldRU1V2aFd3YzI5c1hoMitVUG1GUlZKRnk4NDhtRmpKSW4yd1AvR0J2cVhYMFpISGdYOGx5ajYK",
       "endpoints": [
         "https://github.com/boostbrothers/apple-container-desktop/releases/latest/download/latest.json"
       ]
