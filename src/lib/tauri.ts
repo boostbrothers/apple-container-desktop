@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Container, Image, SystemStatus, ResourceSettings, HostInfo, Volume, Network, ContainerDetail, ContainerStats, ContainerVersion, ContainerInstallCheck, RegistrySettings, DomainStatus, Project, ProjectTypeDetection, EnvVarEntry, InfisicalConfig, AppSettings, GlobalEnvVar, EnvProfile, ProjectEnvBinding, DomainConfig, ContainerDomainOverride } from "../types";
+import type { Container, Image, SystemStatus, ResourceSettings, HostInfo, Volume, Network, ContainerDetail, ContainerStats, ContainerVersion, ContainerInstallCheck, RegistrySettings, Project, ProjectTypeDetection, EnvVarEntry, InfisicalConfig, AppSettings, GlobalEnvVar, EnvProfile, ProjectEnvBinding, DnsList, Service } from "../types";
 
 export const api = {
   // System
@@ -65,7 +65,7 @@ export const api = {
     invoke<Project[]>("list_projects"),
   addProject: (params: { name: string; workspacePath: string; dockerfile?: string }) =>
     invoke<Project>("add_project", params),
-  updateProject: (project: Omit<Project, "status" | "container_ids">) =>
+  updateProject: (project: Omit<Project, "status" | "container_ids" | "service_statuses">) =>
     invoke<void>("update_project", { project }),
   removeProject: (id: string, stopContainers: boolean) =>
     invoke<void>("remove_project", { id, stopContainers }),
@@ -83,6 +83,16 @@ export const api = {
     invoke<EnvVarEntry[]>("run_env_command", { command, workspacePath }),
   openTerminalExec: (containerId: string) =>
     invoke<void>("open_terminal_exec", { containerId }),
+  addService: (projectId: string, service: Service) =>
+    invoke<Project>("add_service", { projectId, service }),
+  updateService: (projectId: string, service: Service) =>
+    invoke<Project>("update_service", { projectId, service }),
+  removeService: (projectId: string, serviceId: string) =>
+    invoke<Project>("remove_service", { projectId, serviceId }),
+  importCompose: (projectId: string, filePath: string) =>
+    invoke<Project>("import_compose", { projectId, filePath }),
+  exportCompose: (projectId: string, filePath: string) =>
+    invoke<void>("export_compose", { projectId, filePath }),
   getAppSettings: () =>
     invoke<AppSettings>("get_app_settings"),
   saveAppSettings: (params: { terminal: string; shell: string }) =>
@@ -146,10 +156,9 @@ export const api = {
   decryptProjectEnvSecret: (projectId: string, key: string, profile: string) =>
     invoke<string>("decrypt_project_env_secret", { projectId, key, profile }),
 
-  // Container Domains
-  domainGetConfig: () => invoke<DomainConfig>("domain_get_config"),
-  domainSetConfig: (config: DomainConfig) => invoke<void>("domain_set_config", { config }),
-  domainSetup: (domain: string) => invoke<void>("domain_setup", { domain }),
-  domainTeardown: (domain: string) => invoke<void>("domain_teardown", { domain }),
-  domainStatus: () => invoke<DomainStatus>("domain_status"),
+  // DNS
+  dnsList: () => invoke<DnsList>("dns_list"),
+  dnsCreate: (domain: string) => invoke<void>("dns_create", { domain }),
+  dnsDelete: (domain: string) => invoke<void>("dns_delete", { domain }),
+  dnsSetDefault: (domain: string) => invoke<void>("dns_set_default", { domain }),
 };

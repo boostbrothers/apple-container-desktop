@@ -173,6 +173,28 @@ export interface VolumeMount {
   readonly: boolean;
 }
 
+export interface Service {
+  id: string;
+  name: string;
+  image: string | null;
+  dockerfile: string | null;
+  ports: string[];
+  volumes: VolumeMount[] | null;
+  watch_mode: boolean | null;
+  startup_command: string | null;
+  remote_debug: boolean | null;
+  debug_port: number | null;
+  env_vars: EnvVarEntry[];
+  network: string | null;
+}
+
+export interface ServiceStatus {
+  service_id: string;
+  service_name: string;
+  status: "running" | "stopped" | "not_created";
+  container_id: string | null;
+}
+
 export type ProjectType = "dockerfile";
 
 export interface Project {
@@ -192,12 +214,15 @@ export interface Project {
   profiles: string[];
   infisical_config: InfisicalConfig | null;
   env_binding: ProjectEnvBinding;
-  domain: string | null;
+  dns_domain: string | null;
+  dns_hostname: string | null;
   image: string | null;
   network: string | null;
   init_commands: string[];
   volumes: VolumeMount[];
   watch_mode: boolean;
+  services: Service[];
+  service_statuses: ServiceStatus[];
   status: "running" | "stopped" | "not_created" | "path_missing" | "unknown";
   container_ids: string[];
 }
@@ -213,17 +238,9 @@ export interface ProjectTypeDetection {
   dotenv_files: string[];
 }
 
-// --- Container Domains ---
+// --- DNS ---
 
-export interface DomainConfig {
-  enabled: boolean;
-  auto_register: boolean;
-  domain_suffix: string;
-  container_overrides: Record<string, ContainerDomainOverride>;
-}
-
-export interface ContainerDomainOverride {
-  enabled: boolean;
-  hostname?: string | null;
-  port?: number | null;
+export interface DnsList {
+  domains: string[];
+  default_domain: string;
 }
