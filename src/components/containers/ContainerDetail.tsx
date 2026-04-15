@@ -1,8 +1,10 @@
+import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, SquareTerminal, Copy } from "lucide-react";
+import { ArrowLeft, SquareTerminal, Copy, Globe } from "lucide-react";
 import { useContainerDetail, useContainerStats } from "../../hooks/useContainerDetail";
-import { useOpenTerminalExec } from "../../hooks/useProjects";
+import { useOpenTerminalExec, useProjects } from "../../hooks/useProjects";
+import { useDnsList } from "../../hooks/useDns";
 
 interface ContainerDetailProps {
   containerId: string;
@@ -13,6 +15,18 @@ export function ContainerDetail({ containerId, onBack }: ContainerDetailProps) {
   const { data: detail, isLoading, error } = useContainerDetail(containerId);
   const { data: stats } = useContainerStats(containerId);
   const openTerminal = useOpenTerminalExec();
+  const { data: projects } = useProjects();
+  const { data: dnsList } = useDnsList();
+
+  const domainUrl = useMemo(() => {
+    if (!projects) return null;
+    const project = projects.find(
+      (p) => p.container_ids.includes(containerId) && p.dns_hostname
+    );
+    if (!project) return null;
+    const domain = project.dns_domain || dnsList?.default_domain;
+    return domain ? `${project.dns_hostname}.${domain}` : null;
+  }, [projects, containerId, dnsList]);
 
   if (isLoading) {
     return (
@@ -103,6 +117,22 @@ export function ContainerDetail({ containerId, onBack }: ContainerDetailProps) {
           <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-sm">
             <span className="text-muted-foreground">Image</span>
             <span className="truncate" title={detail.image}>{detail.image}</span>
+            {domainUrl && (
+              <>
+                <span className="text-muted-foreground">Domain</span>
+                <span className="inline-flex items-center gap-1.5">
+                  <Globe className="h-3.5 w-3.5 text-[#2997ff]" />
+                  <a
+                    href={`http://${domainUrl}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#2997ff] hover:underline font-mono text-xs"
+                  >
+                    {domainUrl}
+                  </a>
+                </span>
+              </>
+            )}
             <span className="text-muted-foreground">Platform</span>
             <span>{detail.platform || "-"}</span>
             <span className="text-muted-foreground">Created</span>

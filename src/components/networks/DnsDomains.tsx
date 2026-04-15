@@ -45,7 +45,7 @@ export function DnsDomains() {
       {/* Add domain */}
       <div className="flex items-center gap-2">
         <Input
-          placeholder="e.g. my-project.local"
+          placeholder="e.g. dev, test, my-project"
           value={newDomain}
           onChange={(e) => setNewDomain(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleCreate()}

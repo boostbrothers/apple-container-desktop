@@ -34,7 +34,7 @@ pub async fn dns_list() -> Result<DnsList, String> {
 pub async fn dns_create(domain: String) -> Result<(), String> {
     let bin = container_cmd();
     let script = format!(
-        r#"do shell script "{} system dns create --localhost 127.0.0.1 {}" with administrator privileges"#,
+        r#"do shell script "{} system dns create {}" with administrator privileges"#,
         bin, domain
     );
     let output = tokio::process::Command::new("osascript")

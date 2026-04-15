@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useContainers, usePruneContainers } from "../../hooks/useContainers";
 import { useProjects } from "../../hooks/useProjects";
+import { useDnsList } from "../../hooks/useDns";
 import { ContainerRow } from "./ContainerRow";
 import { ContainerLogs } from "./ContainerLogs";
 import { ContainerRun } from "./ContainerRun";
@@ -26,6 +27,7 @@ export function ContainerList({ composeFilter }: ContainerListProps) {
   const [inspectId, setInspectId] = useState<string | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const { data: allProjects } = useProjects();
+  const { data: dnsList } = useDnsList();
   const selectedProject = useMemo(
     () => allProjects?.find((p) => p.id === selectedProjectId) ?? null,
     [allProjects, selectedProjectId]
@@ -33,6 +35,22 @@ export function ContainerList({ composeFilter }: ContainerListProps) {
   const stoppedCount = useMemo(() =>
     containers?.filter((c) => c.state !== "running").length ?? 0,
   [containers]);
+
+  // container ID → domain URL 매핑
+  const domainMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (!allProjects) return map;
+    for (const p of allProjects) {
+      const domain = p.dns_domain || dnsList?.default_domain;
+      if (domain && p.dns_hostname) {
+        const url = `${p.dns_hostname}.${domain}`;
+        for (const cid of p.container_ids) {
+          map.set(cid, url);
+        }
+      }
+    }
+    return map;
+  }, [allProjects, dnsList]);
 
   const filtered = useMemo(() => {
     if (!containers) return [];
@@ -113,6 +131,7 @@ export function ContainerList({ composeFilter }: ContainerListProps) {
                 container={container}
                 onViewLogs={setLogsContainerId}
                 onInspect={setInspectId}
+                domainUrl={domainMap.get(container.id)}
               />
             ))}
             {filtered.length === 0 && !isLoading && (
