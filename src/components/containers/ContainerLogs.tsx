@@ -29,15 +29,15 @@ export function ContainerLogs({ containerId, onBack }: ContainerLogsProps) {
   }, [logs, autoScroll]);
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="mb-2 flex items-center gap-2">
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="shrink-0 -mx-4 -mt-4 px-4 pt-4 pb-3 glass-panel border-b border-[var(--glass-border)] flex items-center gap-2">
         <Button variant="ghost" size="sm" onClick={onBack}>← Back</Button>
         <span className="text-sm font-medium">Logs: {containerId.slice(0, 12)}</span>
         <Button variant="outline" size="sm" className="ml-auto" onClick={() => setAutoScroll(!autoScroll)}>
           {autoScroll ? "Auto-scroll: On" : "Auto-scroll: Off"}
         </Button>
       </div>
-      <ScrollArea className="flex-1 rounded-xl border border-[var(--glass-border)] bg-black/90 p-3 shadow-lg">
+      <ScrollArea className="flex-1 min-h-0 rounded-xl border border-[var(--glass-border)] bg-black/90 p-3 shadow-lg">
         <pre className="text-xs text-green-400 font-mono whitespace-pre-wrap">{logs.join("\n")}</pre>
         <div ref={bottomRef} />
       </ScrollArea>

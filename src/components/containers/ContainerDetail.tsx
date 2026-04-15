@@ -40,7 +40,7 @@ export function ContainerDetail({ containerId, onBack }: ContainerDetailProps) {
 
   return (
     <div className="min-w-0">
-      <div className="mb-4 flex items-center gap-3">
+      <div className="sticky -top-4 z-20 -mx-4 -mt-4 px-4 pt-4 pb-3 glass-panel border-b border-[var(--glass-border)] flex items-center gap-3">
         <Button variant="ghost" size="sm" onClick={onBack}>
           <ArrowLeft className="mr-1 h-4 w-4" /> Back
         </Button>
