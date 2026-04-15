@@ -6,6 +6,8 @@ export interface Container {
   status: string;
   ports: string;
   created_at: string;
+  project: string;
+  hostname: string;
 }
 
 export interface Image {
@@ -53,6 +55,11 @@ export interface Network {
   labels: string;
 }
 
+export interface LabelEntry {
+  key: string;
+  value: string;
+}
+
 export interface ContainerDetail {
   id: string;
   name: string;
@@ -67,6 +74,13 @@ export interface ContainerDetail {
   networks: NetworkInfo[];
   cmd: string;
   entrypoint: string;
+  hostname: string;
+  working_dir: string;
+  user: string;
+  labels: LabelEntry[];
+  restart_policy: string;
+  pid: number | null;
+  raw_json: string;
 }
 
 export interface PortBinding {
@@ -84,8 +98,10 @@ export interface MountInfo {
 
 export interface NetworkInfo {
   name: string;
+  hostname: string;
   ip_address: string;
   gateway: string;
+  mac_address: string;
 }
 
 export interface ContainerStats {

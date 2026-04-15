@@ -22,6 +22,8 @@ pub struct ContainerListConfig {
     pub image: Option<ContainerListImage>,
     #[serde(default, rename = "publishedPorts")]
     pub published_ports: Vec<ContainerListPort>,
+    #[serde(default)]
+    pub labels: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -59,6 +61,8 @@ pub struct Container {
     pub status: String,
     pub ports: String,
     pub created_at: String,
+    pub project: String,
+    pub hostname: String,
 }
 
 impl From<ContainerListEntry> for Container {
@@ -67,6 +71,7 @@ impl From<ContainerListEntry> for Container {
             id: String::new(),
             image: None,
             published_ports: Vec::new(),
+            labels: None,
         });
         let id = config.id.clone();
         let name = config.id;
@@ -131,6 +136,22 @@ impl From<ContainerListEntry> for Container {
             })
             .unwrap_or_default();
 
+        // Extract project name from labels
+        let project = config
+            .labels
+            .as_ref()
+            .and_then(|l| l.get("com.acd.project"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+
+        // Extract hostname from network info (strip trailing dot)
+        let hostname = entry
+            .networks
+            .first()
+            .map(|n| n.hostname.trim_end_matches('.').to_string())
+            .unwrap_or_default();
+
         Container {
             id,
             name,
@@ -139,6 +160,8 @@ impl From<ContainerListEntry> for Container {
             status,
             ports,
             created_at,
+            project,
+            hostname,
         }
     }
 }
@@ -363,6 +386,19 @@ pub struct ContainerDetail {
     pub networks: Vec<NetworkInfo>,
     pub cmd: String,
     pub entrypoint: String,
+    pub hostname: String,
+    pub working_dir: String,
+    pub user: String,
+    pub labels: Vec<LabelEntry>,
+    pub restart_policy: String,
+    pub pid: Option<u64>,
+    pub raw_json: String,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct LabelEntry {
+    pub key: String,
+    pub value: String,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -383,8 +419,10 @@ pub struct MountInfo {
 #[derive(Debug, Serialize, Clone)]
 pub struct NetworkInfo {
     pub name: String,
+    pub hostname: String,
     pub ip_address: String,
     pub gateway: String,
+    pub mac_address: String,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -587,6 +625,10 @@ pub struct Project {
     #[serde(default)]
     pub domain: Option<String>,
     #[serde(default)]
+    pub dns_domain: Option<String>,
+    #[serde(default)]
+    pub dns_hostname: Option<String>,
+    #[serde(default)]
     pub image: Option<String>,
     #[serde(default)]
     pub network: Option<String>,
@@ -631,6 +673,8 @@ pub struct ProjectWithStatus {
     pub infisical_config: Option<InfisicalConfig>,
     pub env_binding: ProjectEnvBinding,
     pub domain: Option<String>,
+    pub dns_domain: Option<String>,
+    pub dns_hostname: Option<String>,
     pub image: Option<String>,
     pub network: Option<String>,
     pub init_commands: Vec<String>,
@@ -669,6 +713,8 @@ impl Project {
             infisical_config: self.infisical_config,
             env_binding: self.env_binding,
             domain: self.domain,
+            dns_domain: self.dns_domain,
+            dns_hostname: self.dns_hostname,
             image: self.image,
             network: self.network,
             init_commands: self.init_commands,

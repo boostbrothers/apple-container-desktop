@@ -376,6 +376,8 @@ pub async fn add_project(
         infisical_config: None,
         env_binding: ProjectEnvBinding::default(),
         domain: None,
+        dns_domain: None,
+        dns_hostname: None,
         image: None,
         network: None,
         init_commands: Vec::new(),
@@ -704,6 +706,8 @@ async fn dockerfile_up(
         "-d".to_string(),
         "--name".to_string(),
         container_name.clone(),
+        "--label".to_string(),
+        format!("com.acd.project={}", project.name),
     ];
 
     // Volume mounts (watch mode + additional)
@@ -1146,6 +1150,8 @@ async fn multi_service_up(
             "-d".to_string(),
             "--name".to_string(),
             container_name.clone(),
+            "--label".to_string(),
+            format!("com.acd.project={}", project.name),
         ];
 
         // Volume mounts

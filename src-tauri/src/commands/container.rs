@@ -1,6 +1,6 @@
 use crate::cli::executor::{container_cmd, CliExecutor, EXTENDED_PATH};
 use crate::cli::types::{
-    Container, ContainerDetail, ContainerStats, ContainerListEntry, MountInfo, NetworkInfo, PortBinding,
+    Container, ContainerDetail, ContainerStats, ContainerListEntry, MountInfo, NetworkInfo, PortBinding, LabelEntry,
 };
 use tauri::{AppHandle, Emitter};
 use tokio::io::{AsyncBufReadExt, BufReader};
@@ -217,8 +217,12 @@ pub async fn container_inspect(id: String) -> Result<ContainerDetail, String> {
             arr.iter()
                 .map(|n| NetworkInfo {
                     name: n["network"].as_str().unwrap_or("").to_string(),
+                    hostname: n["hostname"].as_str().unwrap_or("").to_string(),
                     ip_address: n["ipv4Address"].as_str().unwrap_or("").to_string(),
                     gateway: n["ipv4Gateway"].as_str().unwrap_or("").to_string(),
+                    mac_address: n["macAddress"].as_str()
+                        .or_else(|| n["hwAddress"].as_str())
+                        .unwrap_or("").to_string(),
                 })
                 .collect()
         })
@@ -239,6 +243,38 @@ pub async fn container_inspect(id: String) -> Result<ContainerDetail, String> {
         .unwrap_or("")
         .to_string();
 
+    // hostname
+    let hostname = config["hostname"].as_str().unwrap_or("").to_string();
+
+    // working directory
+    let working_dir = config["initProcess"]["cwd"].as_str()
+        .or_else(|| config["initProcess"]["workingDirectory"].as_str())
+        .unwrap_or("").to_string();
+
+    // user
+    let user = config["initProcess"]["user"].as_str()
+        .or_else(|| config["user"].as_str())
+        .unwrap_or("").to_string();
+
+    // labels
+    let labels = config["labels"].as_object()
+        .map(|obj| obj.iter().map(|(k, v)| LabelEntry {
+            key: k.clone(),
+            value: v.as_str().unwrap_or("").to_string(),
+        }).collect())
+        .unwrap_or_default();
+
+    // restart policy
+    let restart_policy = config["restartPolicy"].as_str()
+        .or_else(|| config["restart"].as_str())
+        .unwrap_or("").to_string();
+
+    // PID
+    let pid = item["pid"].as_u64().or_else(|| item["containerPID"].as_u64());
+
+    // Raw JSON
+    let raw_json = serde_json::to_string_pretty(item).unwrap_or_default();
+
     Ok(ContainerDetail {
         id: container_id,
         name,
@@ -253,6 +289,13 @@ pub async fn container_inspect(id: String) -> Result<ContainerDetail, String> {
         networks,
         cmd,
         entrypoint,
+        hostname,
+        working_dir,
+        user,
+        labels,
+        restart_policy,
+        pid,
+        raw_json,
     })
 }
 
