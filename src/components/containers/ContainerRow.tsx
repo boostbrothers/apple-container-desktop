@@ -7,7 +7,11 @@ import {
   ScrollText,
   Search,
   Trash2,
+  Globe,
+  Copy,
+  ExternalLink,
 } from "lucide-react";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import type { Container } from "../../types";
 import { useContainerAction } from "../../hooks/useContainers";
 import { useOpenTerminalExec } from "../../hooks/useProjects";
@@ -35,6 +39,7 @@ interface ContainerRowProps {
   onInspect?: (id: string) => void;
   showServiceName?: boolean;
   compact?: boolean;
+  domainUrl?: string | null;
 }
 
 export function ContainerRow({
@@ -43,6 +48,7 @@ export function ContainerRow({
   onInspect,
   showServiceName,
   compact,
+  domainUrl,
 }: ContainerRowProps) {
   const action = useContainerAction();
   const openTerminal = useOpenTerminalExec();
@@ -90,6 +96,33 @@ export function ContainerRow({
                 +{hostPorts.length - 3}
               </span>
             )}
+          </div>
+        )}
+        {domainUrl && domainUrl.includes(".") && (
+          <div className="flex items-center gap-1 mt-1">
+            <Globe className="h-3 w-3 text-[#2997ff] shrink-0" />
+            <span
+              className="text-[10px] font-mono text-[#2997ff] truncate cursor-pointer hover:underline"
+              onClick={(e) => {
+                e.stopPropagation();
+                openUrl(`http://${domainUrl}`);
+              }}
+              title={`http://${domainUrl}`}
+            >
+              {domainUrl}
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-4 w-4 shrink-0 opacity-0 group-hover/row:opacity-100 transition-opacity"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigator.clipboard.writeText(domainUrl);
+              }}
+              title="Copy domain"
+            >
+              <Copy className="h-2.5 w-2.5" />
+            </Button>
           </div>
         )}
       </div>
