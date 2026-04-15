@@ -10,7 +10,6 @@ import { RegistrySettingsPanel } from "../settings/RegistrySettingsPanel";
 import { UpdatePanel } from "../settings/UpdatePanel";
 import { AppearanceSettings } from "../settings/AppearanceSettings";
 import { TerminalSettings } from "../settings/TerminalSettings";
-import { ContainerDomainsSettings } from "../settings/ContainerDomainsSettings";
 import { EnvironmentPage } from "../environment/EnvironmentPage";
 
 export function MainLayout() {
@@ -35,7 +34,6 @@ export function MainLayout() {
         {activePage === "environment" && <EnvironmentPage />}
         {activePage === "settings/resources" && <ResourceSettingsPanel />}
         {activePage === "settings/registry" && <RegistrySettingsPanel />}
-        {activePage === "settings/domains" && <ContainerDomainsSettings />}
         {activePage === "settings/terminal" && <TerminalSettings />}
         {activePage === "settings/update" && <UpdatePanel />}
         {activePage === "settings/appearance" && <AppearanceSettings />}

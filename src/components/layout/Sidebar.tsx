@@ -14,7 +14,6 @@ export type Page =
   // Settings sub-pages
   | "settings/resources"
   | "settings/registry"
-  | "settings/domains"
   | "settings/terminal"
   | "settings/update"
   | "settings/appearance";
@@ -134,7 +133,6 @@ export function Sidebar({ activePage, onPageChange, composeFilter, onComposeFilt
           <div className="flex flex-col gap-0.5">
             {navItem("settings/resources", "Resources", true)}
             {navItem("settings/registry", "Registry", true)}
-            {navItem("settings/domains", "Domains", true)}
             {navItem("settings/terminal", "Terminal", true)}
             {navItem("settings/update", "Update", true)}
             {navItem("settings/appearance", "Appearance", true)}

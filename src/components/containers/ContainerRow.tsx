@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   SquareTerminal,
@@ -8,15 +7,10 @@ import {
   ScrollText,
   Search,
   Trash2,
-  Globe,
 } from "lucide-react";
-import type {
-  Container,
-  ContainerDomainOverride,
-} from "../../types";
+import type { Container } from "../../types";
 import { useContainerAction } from "../../hooks/useContainers";
 import { useOpenTerminalExec } from "../../hooks/useProjects";
-import { ContainerDomainDialog } from "./ContainerDomainDialog";
 import { cn } from "@/lib/utils";
 
 function parseHostPorts(ports: string): string[] {
@@ -41,8 +35,6 @@ interface ContainerRowProps {
   onInspect?: (id: string) => void;
   showServiceName?: boolean;
   compact?: boolean;
-  domainOverride?: ContainerDomainOverride;
-  domainEnabled?: boolean;
 }
 
 export function ContainerRow({
@@ -51,12 +43,9 @@ export function ContainerRow({
   onInspect,
   showServiceName,
   compact,
-  domainOverride,
-  domainEnabled,
 }: ContainerRowProps) {
   const action = useContainerAction();
   const openTerminal = useOpenTerminalExec();
-  const [showDomainDialog, setShowDomainDialog] = useState(false);
   const isRunning = container.state === "running";
   const displayName = container.name;
   const hostPorts = parseHostPorts(container.ports);
@@ -107,16 +96,6 @@ export function ContainerRow({
 
       {/* Action buttons */}
       <div className="flex items-center gap-0.5 shrink-0">
-        {isRunning && domainEnabled && (
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            onClick={() => setShowDomainDialog(true)}
-            title="Configure domain"
-          >
-            <Globe className="h-3.5 w-3.5" />
-          </Button>
-        )}
         {isRunning && (
           <Button
             variant="ghost"
@@ -197,14 +176,6 @@ export function ContainerRow({
         </Button>
       </div>
 
-      {showDomainDialog && (
-        <ContainerDomainDialog
-          containerName={container.name}
-          override={domainOverride}
-          open={showDomainDialog}
-          onClose={() => setShowDomainDialog(false)}
-        />
-      )}
     </div>
   );
 }

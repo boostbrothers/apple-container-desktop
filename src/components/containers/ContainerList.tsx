@@ -1,7 +1,6 @@
 import { useState, useMemo } from "react";
 import { useContainers, usePruneContainers } from "../../hooks/useContainers";
 import { useProjects } from "../../hooks/useProjects";
-import { useDomainConfig } from "../../hooks/useDomains";
 import { ContainerRow } from "./ContainerRow";
 import { ContainerLogs } from "./ContainerLogs";
 import { ContainerRun } from "./ContainerRun";
@@ -31,8 +30,6 @@ export function ContainerList({ composeFilter }: ContainerListProps) {
     () => allProjects?.find((p) => p.id === selectedProjectId) ?? null,
     [allProjects, selectedProjectId]
   );
-  const { data: domainConfig } = useDomainConfig();
-
   const stoppedCount = useMemo(() =>
     containers?.filter((c) => c.state !== "running").length ?? 0,
   [containers]);
@@ -116,8 +113,6 @@ export function ContainerList({ composeFilter }: ContainerListProps) {
                 container={container}
                 onViewLogs={setLogsContainerId}
                 onInspect={setInspectId}
-                domainOverride={domainConfig?.container_overrides?.[container.name]}
-                domainEnabled={domainConfig?.enabled}
               />
             ))}
             {filtered.length === 0 && !isLoading && (
