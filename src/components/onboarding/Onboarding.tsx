@@ -1,7 +1,7 @@
 // src/components/onboarding/Onboarding.tsx
 import { useState, useEffect } from "react";
 import { WelcomeStep } from "./WelcomeStep";
-import { ColimaCheckStep } from "./ColimaCheckStep";
+import { ContainerCheckStep } from "./ContainerCheckStep";
 import { SidebarGuideStep } from "./SidebarGuideStep";
 
 interface OnboardingProps {
@@ -62,7 +62,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
       <div className="glass-card flex flex-col items-center gap-8 px-12 py-10">
         <div className={`onboarding-step ${stateClass}`}>
           {step === 0 && <WelcomeStep onNext={handleNext} onSkip={handleSkip} />}
-          {step === 1 && <ColimaCheckStep onNext={handleNext} onSkip={handleSkip} />}
+          {step === 1 && <ContainerCheckStep onNext={handleNext} onSkip={handleSkip} />}
           {step === 2 && <SidebarGuideStep onFinish={handleNext} onSkip={handleSkip} />}
         </div>
         {/* Dot Indicator */}

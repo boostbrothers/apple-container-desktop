@@ -1,24 +1,17 @@
 import { useState, useMemo } from "react";
 import { useContainers, usePruneContainers } from "../../hooks/useContainers";
 import { useProjects } from "../../hooks/useProjects";
-import { useDomainConfig, useDomainSync } from "../../hooks/useDomains";
 import { ContainerRow } from "./ContainerRow";
-import { ComposeGroup } from "./ComposeGroup";
 import { ContainerLogs } from "./ContainerLogs";
 import { ContainerRun } from "./ContainerRun";
 import { ContainerDetail } from "./ContainerDetail";
 import { ProjectsTab } from "./ProjectsTab";
 import { ProjectDetail } from "./ProjectDetail";
 import { Button } from "@/components/ui/button";
-import type { Container, Project, DomainServiceEntry } from "../../types";
+import type { Container, Project } from "../../types";
 
 type Filter = "all" | "running" | "stopped";
 type Tab = "running" | "projects";
-
-interface ComposeGroupData {
-  project: string;
-  containers: Container[];
-}
 
 interface ContainerListProps {
   composeFilter?: string | null;
@@ -33,13 +26,11 @@ export function ContainerList({ composeFilter }: ContainerListProps) {
   const [inspectId, setInspectId] = useState<string | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const { data: allProjects } = useProjects();
+
   const selectedProject = useMemo(
     () => allProjects?.find((p) => p.id === selectedProjectId) ?? null,
     [allProjects, selectedProjectId]
   );
-  const { data: domainConfig } = useDomainConfig();
-  const { data: domainSync } = useDomainSync(domainConfig?.enabled ?? false);
-
   const stoppedCount = useMemo(() =>
     containers?.filter((c) => c.state !== "running").length ?? 0,
   [containers]);
@@ -49,41 +40,34 @@ export function ContainerList({ composeFilter }: ContainerListProps) {
     return containers.filter((c) => {
       if (filter === "running" && c.state !== "running") return false;
       if (filter === "stopped" && c.state === "running") return false;
-      if (composeFilter && c.compose_project !== composeFilter) return false;
       return true;
     });
-  }, [containers, filter, composeFilter]);
+  }, [containers, filter]);
 
-  const { composeGroups, standalone } = useMemo(() => {
-    const groupMap = new Map<string, Container[]>();
-    const standalone: Container[] = [];
+  const groupedContainers = useMemo(() => {
+    if (!filtered.length) return { groups: [] as { name: string; containers: Container[] }[], ungrouped: [] as Container[] };
+
+    const projectMap = new Map<string, Container[]>();
 
     for (const c of filtered) {
-      if (c.compose_project) {
-        const group = groupMap.get(c.compose_project) ?? [];
-        group.push(c);
-        groupMap.set(c.compose_project, group);
-      } else {
-        standalone.push(c);
+      // Use label-based project name; fall back to project.container_ids mapping
+      let projectName = c.project;
+      if (!projectName && allProjects) {
+        const match = allProjects.find(p => p.container_ids.includes(c.id));
+        if (match) projectName = match.name;
+      }
+      if (projectName) {
+        const list = projectMap.get(projectName) || [];
+        list.push(c);
+        projectMap.set(projectName, list);
       }
     }
 
-    const composeGroups: ComposeGroupData[] = Array.from(groupMap.entries()).map(
-      ([project, containers]) => ({ project, containers })
-    );
-
-    return { composeGroups, standalone };
-  }, [filtered]);
-
-  const domainServiceMap = useMemo(() => {
-    const map = new Map<string, DomainServiceEntry>();
-    if (domainSync?.services) {
-      for (const svc of domainSync.services) {
-        map.set(svc.container_name, svc);
-      }
-    }
-    return map;
-  }, [domainSync]);
+    const groups = Array.from(projectMap.entries()).map(([name, containers]) => ({ name, containers }));
+    const assignedIds = new Set(groups.flatMap(g => g.containers.map(c => c.id)));
+    const ungrouped = filtered.filter(c => !assignedIds.has(c.id));
+    return { groups, ungrouped };
+  }, [filtered, allProjects]);
 
   if (selectedProject) {
     return <ProjectDetail project={selectedProject} onBack={() => setSelectedProjectId(null)} />;
@@ -147,31 +131,53 @@ export function ContainerList({ composeFilter }: ContainerListProps) {
           </div>
           <div className="mb-4"><ContainerRun /></div>
           {isLoading && <p className="text-sm text-muted-foreground">Loading...</p>}
-          {error && <p className="text-sm text-destructive">Failed to load containers. Is Colima running?</p>}
-          <div className="flex flex-col gap-2">
-            {composeGroups.map((group) => (
-              <ComposeGroup
-                key={group.project}
-                project={group.project}
-                containers={group.containers}
-                onViewLogs={setLogsContainerId}
-                onInspect={setInspectId}
-                domainServiceMap={domainServiceMap}
-                domainConfig={domainConfig}
-              />
+          {error && <p className="text-sm text-destructive">Failed to load containers.</p>}
+          <div className="flex flex-col gap-3">
+            {groupedContainers.groups.map(({ name, containers }) => (
+              <div key={name} className="glass-card overflow-hidden">
+                <div className="flex items-center gap-2 px-4 py-2 border-b border-[var(--glass-border)]">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    {name}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {containers.length} container{containers.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+                <div className="flex flex-col">
+                  {containers.map((container) => (
+                    <ContainerRow
+                      key={container.id}
+                      container={container}
+                      onViewLogs={setLogsContainerId}
+                      onInspect={setInspectId}
+                      domainUrl={container.hostname || null}
+                      compact
+                    />
+                  ))}
+                </div>
+              </div>
             ))}
-            {standalone.map((container) => (
-              <ContainerRow
-                key={container.id}
-                container={container}
-                onViewLogs={setLogsContainerId}
-                onInspect={setInspectId}
-                domainService={domainServiceMap.get(container.name)}
-                domainOverride={domainConfig?.container_overrides?.[container.name]}
-                domainEnabled={domainConfig?.enabled}
-              />
-            ))}
-            {composeGroups.length === 0 && standalone.length === 0 && !isLoading && (
+
+            {groupedContainers.ungrouped.length > 0 && (
+              <div className="flex flex-col gap-2">
+                {groupedContainers.groups.length > 0 && (
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
+                    Standalone
+                  </span>
+                )}
+                {groupedContainers.ungrouped.map((container) => (
+                  <ContainerRow
+                    key={container.id}
+                    container={container}
+                    onViewLogs={setLogsContainerId}
+                    onInspect={setInspectId}
+                    domainUrl={container.hostname || null}
+                  />
+                ))}
+              </div>
+            )}
+
+            {filtered.length === 0 && !isLoading && (
               <p className="text-sm text-muted-foreground">No containers found.</p>
             )}
           </div>

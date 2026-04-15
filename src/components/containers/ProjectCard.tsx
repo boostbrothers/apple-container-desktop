@@ -11,13 +11,17 @@ import {
   FolderOpen,
   AlertTriangle,
   Lock,
+  Copy,
+  Globe,
 } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
+import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import type { Project } from "../../types";
 import {
   useProjectAction,
   useRemoveProject,
 } from "../../hooks/useProjects";
+import { useDnsList } from "../../hooks/useDns";
 import { useSwitchProfile } from "../../hooks/useEnvSecrets";
 
 interface ProjectCardProps {
@@ -31,6 +35,11 @@ export function ProjectCard({ project, onSelect }: ProjectCardProps) {
   const [isRunning, setIsRunning] = useState(false);
   const [lastLog, setLastLog] = useState<string | null>(null);
   const switchProfile = useSwitchProfile();
+  const { data: dnsList } = useDnsList();
+
+  const domainUrl = project.dns_hostname
+    ? `${project.dns_hostname}.${project.dns_domain || dnsList?.default_domain || ""}`
+    : null;
 
   useEffect(() => {
     if (!isRunning) return;
@@ -69,11 +78,7 @@ export function ProjectCard({ project, onSelect }: ProjectCardProps) {
     });
   };
 
-  const typeLabel = {
-    compose: "Compose",
-    dockerfile: "Dockerfile",
-    devcontainer: "DevContainer",
-  }[project.project_type] ?? project.project_type;
+  const typeLabel = "Dockerfile";
 
   const statusBadge = () => {
     switch (project.status) {
@@ -115,7 +120,7 @@ export function ProjectCard({ project, onSelect }: ProjectCardProps) {
   const disabled = action.isPending || remove.isPending || isRunning;
 
   return (
-    <div className="glass-group overflow-hidden">
+    <div className="glass-group overflow-hidden group">
       <div className="flex items-center gap-3 px-4 py-3">
         <FolderOpen className="h-4 w-4 text-muted-foreground shrink-0" />
         <div className="min-w-0 flex-1">
@@ -127,14 +132,6 @@ export function ProjectCard({ project, onSelect }: ProjectCardProps) {
               {typeLabel}
             </Badge>
             {statusBadge()}
-            {project.watch_mode && (
-              <Badge
-                variant="outline"
-                className="text-[10px] px-1.5 bg-blue-500/10 text-blue-400 border-blue-500/20"
-              >
-                Watch
-              </Badge>
-            )}
             {project.remote_debug && (
               <Badge
                 variant="outline"
@@ -170,9 +167,43 @@ export function ProjectCard({ project, onSelect }: ProjectCardProps) {
               <AlertTriangle className="h-3.5 w-3.5 text-destructive" />
             )}
           </div>
-          <span className="text-xs text-muted-foreground truncate block">
-            {project.workspace_path}
-          </span>
+          <div className="flex items-center gap-1 mt-0.5">
+            <span className="text-xs text-muted-foreground truncate">
+              {project.workspace_path}
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-4 w-4 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigator.clipboard.writeText(project.workspace_path);
+              }}
+              title="Copy path"
+            >
+              <Copy className="h-2.5 w-2.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-4 w-4 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={(e) => {
+                e.stopPropagation();
+                revealItemInDir(project.workspace_path);
+              }}
+              title="Open in Finder"
+            >
+              <FolderOpen className="h-2.5 w-2.5" />
+            </Button>
+          </div>
+          {domainUrl && domainUrl.endsWith(".") === false && (
+            <div className="flex items-center gap-1 mt-0.5">
+              <Globe className="h-3 w-3 text-[#2997ff] shrink-0" />
+              <span className="text-[10px] font-mono text-[#2997ff] truncate">
+                {domainUrl}
+              </span>
+            </div>
+          )}
           {isRunning && lastLog && (
             <span className="text-[11px] text-muted-foreground/70 truncate block font-mono mt-0.5">
               {lastLog}

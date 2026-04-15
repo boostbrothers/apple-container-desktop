@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    colima_desktop_lib::run()
+    apple_container_desktop_lib::run()
 }

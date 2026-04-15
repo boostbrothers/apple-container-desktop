@@ -4,21 +4,33 @@ use tauri::{
     Emitter, Manager, Runtime,
 };
 
-use crate::cli::executor::CliExecutor;
-use crate::cli::types::{ColimaStatus, ColimaStatusRaw, Container, DockerPsEntry};
+use crate::cli::executor::{container_cmd, CliExecutor};
+use crate::cli::types::{ContainerListEntry, Container, SystemStatus};
 
-async fn fetch_colima_status() -> ColimaStatus {
-    match CliExecutor::run("colima", &["status", "--json"]).await {
-        Ok(stdout) => match serde_json::from_str::<ColimaStatusRaw>(&stdout) {
-            Ok(raw) => raw.into_status(),
-            Err(_) => ColimaStatus::stopped(),
-        },
-        Err(_) => ColimaStatus::stopped(),
+async fn fetch_system_status() -> SystemStatus {
+    let result = CliExecutor::run("container", &["system", "status"]).await;
+    match result {
+        Ok(stdout) => {
+            let running = stdout.to_lowercase().contains("running");
+            let version = CliExecutor::run("container", &["system", "version"])
+                .await
+                .unwrap_or_default();
+            SystemStatus {
+                running,
+                version: version.trim().to_string(),
+            }
+        }
+        Err(_) => SystemStatus::stopped(),
     }
 }
 
-async fn fetch_running_containers() -> Vec<Container> {
-    match CliExecutor::run_json_lines::<DockerPsEntry>(crate::cli::executor::docker_cmd(), &["ps", "--format", "json"]).await {
+async fn fetch_all_containers() -> Vec<Container> {
+    match CliExecutor::run_json_array::<ContainerListEntry>(
+        container_cmd(),
+        &["list", "-a", "--format", "json"],
+    )
+    .await
+    {
         Ok(entries) => entries.into_iter().map(Container::from).collect(),
         Err(_) => Vec::new(),
     }
@@ -26,17 +38,14 @@ async fn fetch_running_containers() -> Vec<Container> {
 
 fn build_tray_menu<R: Runtime>(
     app: &tauri::AppHandle<R>,
-    status: &ColimaStatus,
+    status: &SystemStatus,
     containers: &[Container],
 ) -> tauri::Result<Menu<R>> {
     let mut builder = MenuBuilder::new(app);
 
     // -- Status section --
     if status.running {
-        let status_text = format!(
-            "Colima: Running ({} CPU, {:.1}GB RAM, {:.0}GB Disk)",
-            status.cpus, status.memory_gib, status.disk_gib,
-        );
+        let status_text = "Container: Running".to_string();
         builder = builder.item(&MenuItem::with_id(
             app,
             "status_info",
@@ -48,7 +57,7 @@ fn build_tray_menu<R: Runtime>(
         builder = builder.item(&MenuItem::with_id(
             app,
             "status_info",
-            "Colima: Stopped",
+            "Container: Stopped",
             false,
             None::<&str>,
         )?);
@@ -58,7 +67,13 @@ fn build_tray_menu<R: Runtime>(
 
     // -- Container section --
     if status.running && !containers.is_empty() {
-        let header = format!("Containers ({})", containers.len());
+        let running_count = containers.iter().filter(|c| c.state == "running").count();
+        let stopped_count = containers.len() - running_count;
+        let header = format!(
+            "Containers ({} running{})",
+            running_count,
+            if stopped_count > 0 { format!(", {} stopped", stopped_count) } else { String::new() }
+        );
         builder = builder.item(&MenuItem::with_id(
             app,
             "containers_header",
@@ -67,29 +82,61 @@ fn build_tray_menu<R: Runtime>(
             None::<&str>,
         )?);
 
-        for container in containers.iter().take(10) {
-            let label = format!("  {} ({})", container.name, container.image);
-            let stop_id = format!("container_stop_{}", container.id);
-            let submenu = Submenu::with_items(
-                app,
-                &label,
-                true,
-                &[
-                    &MenuItem::with_id(
-                        app,
-                        &format!("container_restart_{}", container.id),
-                        "Restart",
-                        true,
-                        None::<&str>,
-                    )?,
-                    &MenuItem::with_id(app, &stop_id, "Stop", true, None::<&str>)?,
-                ],
-            )?;
+        for container in containers.iter().take(15) {
+            let is_running = container.state == "running";
+            let state_icon = if is_running { "●" } else { "○" };
+            let label = format!("{} {} ({})", state_icon, container.name, container.image);
+
+            let submenu = if is_running {
+                Submenu::with_items(
+                    app,
+                    &label,
+                    true,
+                    &[
+                        &MenuItem::with_id(
+                            app,
+                            &format!("container_restart_{}", container.id),
+                            "Restart",
+                            true,
+                            None::<&str>,
+                        )?,
+                        &MenuItem::with_id(
+                            app,
+                            &format!("container_stop_{}", container.id),
+                            "Stop",
+                            true,
+                            None::<&str>,
+                        )?,
+                    ],
+                )?
+            } else {
+                Submenu::with_items(
+                    app,
+                    &label,
+                    true,
+                    &[
+                        &MenuItem::with_id(
+                            app,
+                            &format!("container_start_{}", container.id),
+                            "Start",
+                            true,
+                            None::<&str>,
+                        )?,
+                        &MenuItem::with_id(
+                            app,
+                            &format!("container_remove_{}", container.id),
+                            "Remove",
+                            true,
+                            None::<&str>,
+                        )?,
+                    ],
+                )?
+            };
             builder = builder.item(&submenu);
         }
 
-        if containers.len() > 10 {
-            let more = format!("  ... and {} more", containers.len() - 10);
+        if containers.len() > 15 {
+            let more = format!("  ... and {} more", containers.len() - 15);
             builder = builder.item(&MenuItem::with_id(
                 app,
                 "more_containers",
@@ -104,35 +151,35 @@ fn build_tray_menu<R: Runtime>(
         builder = builder.item(&MenuItem::with_id(
             app,
             "no_containers",
-            "No running containers",
+            "No containers",
             false,
             None::<&str>,
         )?);
         builder = builder.separator();
     }
 
-    // -- Colima controls --
+    // -- Container controls --
     if status.running {
         builder = builder
             .item(&MenuItem::with_id(
                 app,
-                "colima_stop",
-                "Stop Colima",
+                "system_stop",
+                "Stop Container",
                 true,
                 None::<&str>,
             )?)
             .item(&MenuItem::with_id(
                 app,
-                "colima_restart",
-                "Restart Colima",
+                "system_restart",
+                "Restart Container",
                 true,
                 None::<&str>,
             )?);
     } else {
         builder = builder.item(&MenuItem::with_id(
             app,
-            "colima_start",
-            "Start Colima",
+            "system_start",
+            "Start Container",
             true,
             None::<&str>,
         )?);
@@ -153,7 +200,7 @@ fn build_tray_menu<R: Runtime>(
         .item(&MenuItem::with_id(
             app,
             "quit",
-            "Quit Colima Desktop",
+            "Quit Apple Container Desktop",
             true,
             None::<&str>,
         )?);
@@ -163,7 +210,7 @@ fn build_tray_menu<R: Runtime>(
 
 pub fn create_tray<R: Runtime>(app: &tauri::App<R>) -> tauri::Result<()> {
     // Build initial menu (stopped state, no containers)
-    let initial_status = ColimaStatus::stopped();
+    let initial_status = SystemStatus::stopped();
     let menu = build_tray_menu(&app.handle(), &initial_status, &[])?;
 
     let tray_icon = {
@@ -178,7 +225,7 @@ pub fn create_tray<R: Runtime>(app: &tauri::App<R>) -> tauri::Result<()> {
         .icon(tray_icon)
         .icon_as_template(true)
         .menu(&menu)
-        .tooltip("Colima Desktop")
+        .tooltip("Apple Container Desktop")
         .on_menu_event(move |app, event| {
             let id = event.id.as_ref().to_string();
 
@@ -192,27 +239,27 @@ pub fn create_tray<R: Runtime>(app: &tauri::App<R>) -> tauri::Result<()> {
                         let _ = window.set_focus();
                     }
                 }
-                "colima_start" => {
+                "system_start" => {
                     let app = app.clone();
                     tauri::async_runtime::spawn(async move {
-                        let _ = crate::commands::colima::colima_start().await;
-                        let _ = app.emit("colima-status-changed", ());
+                        let _ = crate::commands::system::system_start().await;
+                        let _ = app.emit("system-status-changed", ());
                         refresh_tray(&app).await;
                     });
                 }
-                "colima_stop" => {
+                "system_stop" => {
                     let app = app.clone();
                     tauri::async_runtime::spawn(async move {
-                        let _ = crate::commands::colima::colima_stop().await;
-                        let _ = app.emit("colima-status-changed", ());
+                        let _ = crate::commands::system::system_stop().await;
+                        let _ = app.emit("system-status-changed", ());
                         refresh_tray(&app).await;
                     });
                 }
-                "colima_restart" => {
+                "system_restart" => {
                     let app = app.clone();
                     tauri::async_runtime::spawn(async move {
-                        let _ = crate::commands::colima::colima_restart().await;
-                        let _ = app.emit("colima-status-changed", ());
+                        let _ = crate::commands::system::system_restart().await;
+                        let _ = app.emit("system-status-changed", ());
                         refresh_tray(&app).await;
                     });
                 }
@@ -222,7 +269,7 @@ pub fn create_tray<R: Runtime>(app: &tauri::App<R>) -> tauri::Result<()> {
                         let container_id = container_id.to_string();
                         tauri::async_runtime::spawn(async move {
                             let _ = crate::commands::container::container_stop(container_id).await;
-                            let _ = app.emit("colima-status-changed", ());
+                            let _ = app.emit("system-status-changed", ());
                             refresh_tray(&app).await;
                         });
                     } else if let Some(container_id) = id.strip_prefix("container_restart_") {
@@ -231,7 +278,23 @@ pub fn create_tray<R: Runtime>(app: &tauri::App<R>) -> tauri::Result<()> {
                         tauri::async_runtime::spawn(async move {
                             let _ =
                                 crate::commands::container::container_restart(container_id).await;
-                            let _ = app.emit("colima-status-changed", ());
+                            let _ = app.emit("system-status-changed", ());
+                            refresh_tray(&app).await;
+                        });
+                    } else if let Some(container_id) = id.strip_prefix("container_start_") {
+                        let app = app.clone();
+                        let container_id = container_id.to_string();
+                        tauri::async_runtime::spawn(async move {
+                            let _ = crate::commands::container::container_start(container_id).await;
+                            let _ = app.emit("system-status-changed", ());
+                            refresh_tray(&app).await;
+                        });
+                    } else if let Some(container_id) = id.strip_prefix("container_remove_") {
+                        let app = app.clone();
+                        let container_id = container_id.to_string();
+                        tauri::async_runtime::spawn(async move {
+                            let _ = crate::commands::container::container_remove(container_id).await;
+                            let _ = app.emit("system-status-changed", ());
                             refresh_tray(&app).await;
                         });
                     }
@@ -279,9 +342,9 @@ pub fn create_tray<R: Runtime>(app: &tauri::App<R>) -> tauri::Result<()> {
 struct TrayState(tauri::tray::TrayIconId);
 
 async fn refresh_tray<R: Runtime>(app: &tauri::AppHandle<R>) {
-    let status = fetch_colima_status().await;
+    let status = fetch_system_status().await;
     let containers = if status.running {
-        fetch_running_containers().await
+        fetch_all_containers().await
     } else {
         Vec::new()
     };
@@ -290,15 +353,12 @@ async fn refresh_tray<R: Runtime>(app: &tauri::AppHandle<R>) {
     let tooltip = if status.running {
         let container_count = containers.len();
         format!(
-            "Colima Desktop - Running\n{} CPU | {:.1}GB RAM | {:.0}GB Disk\n{} container{}",
-            status.cpus,
-            status.memory_gib,
-            status.disk_gib,
+            "Apple Container Desktop - Running\n{} container{}",
             container_count,
             if container_count == 1 { "" } else { "s" },
         )
     } else {
-        "Colima Desktop - Stopped".to_string()
+        "Apple Container Desktop - Stopped".to_string()
     };
 
     if let Some(tray_state) = app.try_state::<TrayState>() {

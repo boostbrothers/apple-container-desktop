@@ -35,7 +35,7 @@ export function ProjectsTab({ onSelectProject }: ProjectsTabProps) {
       )}
       {error && (
         <p className="text-sm text-destructive">
-          Failed to load projects. Is Colima running?
+          Failed to load projects.
         </p>
       )}
 
@@ -53,8 +53,7 @@ export function ProjectsTab({ onSelectProject }: ProjectsTabProps) {
               No projects registered yet.
             </p>
             <p className="text-xs text-muted-foreground">
-              Add a project folder with a Dockerfile, docker-compose.yml, or
-              devcontainer.json to get started.
+              Add a project folder with a Dockerfile to get started.
             </p>
           </div>
         )}

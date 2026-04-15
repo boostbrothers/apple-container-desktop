@@ -4,7 +4,7 @@ use tokio::process::Command;
 
 fn store_path() -> Result<std::path::PathBuf, String> {
     let config_dir = dirs::config_dir().ok_or("Cannot find config directory")?;
-    let app_dir = config_dir.join("colima-desktop");
+    let app_dir = config_dir.join("apple-container-desktop");
     std::fs::create_dir_all(&app_dir)
         .map_err(|e| format!("Failed to create config dir: {}", e))?;
     Ok(app_dir.join("env-store.json"))

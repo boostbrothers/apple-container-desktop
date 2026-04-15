@@ -3,7 +3,7 @@ import { getCurrentWindow, type Theme as TauriTheme } from "@tauri-apps/api/wind
 
 type Theme = "light" | "dark" | "auto";
 
-const STORAGE_KEY = "colima-desktop-theme";
+const STORAGE_KEY = "apple-container-desktop-theme";
 
 let currentTheme: Theme = (localStorage.getItem(STORAGE_KEY) as Theme) ?? "auto";
 const listeners = new Set<() => void>();

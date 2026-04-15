@@ -1,7 +1,7 @@
 {
-  "name": "colima-desktop",
+  "name": "apple-container-desktop",
   "private": true,
-  "version": "0.8.0",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

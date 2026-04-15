@@ -1,8 +1,10 @@
+import React, { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, SquareTerminal, Copy } from "lucide-react";
+import { ArrowLeft, SquareTerminal, Copy, Globe } from "lucide-react";
 import { useContainerDetail, useContainerStats } from "../../hooks/useContainerDetail";
-import { useOpenTerminalExec } from "../../hooks/useProjects";
+import { useOpenTerminalExec, useProjects } from "../../hooks/useProjects";
+import { useDnsList } from "../../hooks/useDns";
 
 interface ContainerDetailProps {
   containerId: string;
@@ -13,6 +15,20 @@ export function ContainerDetail({ containerId, onBack }: ContainerDetailProps) {
   const { data: detail, isLoading, error } = useContainerDetail(containerId);
   const { data: stats } = useContainerStats(containerId);
   const openTerminal = useOpenTerminalExec();
+  const { data: projects } = useProjects();
+  const { data: dnsList } = useDnsList();
+
+  const [showRaw, setShowRaw] = useState(false);
+
+  const domainUrl = useMemo(() => {
+    if (!projects) return null;
+    const project = projects.find(
+      (p) => p.container_ids.includes(containerId) && p.dns_hostname
+    );
+    if (!project) return null;
+    const domain = project.dns_domain || dnsList?.default_domain;
+    return domain ? `${project.dns_hostname}.${domain}` : null;
+  }, [projects, containerId, dnsList]);
 
   if (isLoading) {
     return (
@@ -40,7 +56,7 @@ export function ContainerDetail({ containerId, onBack }: ContainerDetailProps) {
 
   return (
     <div className="min-w-0">
-      <div className="mb-4 flex items-center gap-3">
+      <div className="sticky -top-4 z-20 -mx-4 -mt-4 px-4 pt-4 pb-3 glass-panel border-b border-[var(--glass-border)] flex items-center gap-3">
         <Button variant="ghost" size="sm" onClick={onBack}>
           <ArrowLeft className="mr-1 h-4 w-4" /> Back
         </Button>
@@ -103,6 +119,28 @@ export function ContainerDetail({ containerId, onBack }: ContainerDetailProps) {
           <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-sm">
             <span className="text-muted-foreground">Image</span>
             <span className="truncate" title={detail.image}>{detail.image}</span>
+            {domainUrl && (
+              <>
+                <span className="text-muted-foreground">Domain</span>
+                <span className="inline-flex items-center gap-1.5">
+                  <Globe className="h-3.5 w-3.5 text-[#2997ff]" />
+                  <a
+                    href={`http://${domainUrl}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#2997ff] hover:underline font-mono text-xs"
+                  >
+                    {domainUrl}
+                  </a>
+                </span>
+              </>
+            )}
+            {detail.hostname && (
+              <>
+                <span className="text-muted-foreground">Hostname</span>
+                <span className="font-mono text-xs">{detail.hostname}</span>
+              </>
+            )}
             <span className="text-muted-foreground">Platform</span>
             <span>{detail.platform || "-"}</span>
             <span className="text-muted-foreground">Created</span>
@@ -113,6 +151,30 @@ export function ContainerDetail({ containerId, onBack }: ContainerDetailProps) {
             <span className="font-mono text-xs truncate" title={detail.entrypoint || "-"}>{detail.entrypoint || "-"}</span>
             <span className="text-muted-foreground">Command</span>
             <span className="font-mono text-xs truncate" title={detail.cmd || "-"}>{detail.cmd || "-"}</span>
+            {detail.working_dir && (
+              <>
+                <span className="text-muted-foreground">Working Dir</span>
+                <span className="font-mono text-xs truncate" title={detail.working_dir}>{detail.working_dir}</span>
+              </>
+            )}
+            {detail.user && (
+              <>
+                <span className="text-muted-foreground">User</span>
+                <span className="font-mono text-xs">{detail.user}</span>
+              </>
+            )}
+            {detail.restart_policy && (
+              <>
+                <span className="text-muted-foreground">Restart Policy</span>
+                <span>{detail.restart_policy}</span>
+              </>
+            )}
+            {detail.pid != null && (
+              <>
+                <span className="text-muted-foreground">PID</span>
+                <span className="font-mono text-xs">{detail.pid}</span>
+              </>
+            )}
           </div>
         </section>
 
@@ -183,14 +245,78 @@ export function ContainerDetail({ containerId, onBack }: ContainerDetailProps) {
         {detail.networks.length > 0 && (
           <section className="glass-section p-4">
             <h2 className="mb-3 text-sm font-semibold">Networks</h2>
-            <div className="flex flex-col gap-1 text-sm">
+            <div className="flex flex-col gap-2">
               {detail.networks.map((net, i) => (
-                <span key={i} className="font-mono text-xs">
-                  {net.name}: {net.ip_address}
-                  {net.gateway ? ` (gw: ${net.gateway})` : ""}
-                </span>
+                <div key={i} className="rounded-lg bg-black/10 p-3">
+                  <div className="text-xs font-semibold mb-1.5">{net.name}</div>
+                  <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs">
+                    {net.hostname && (
+                      <>
+                        <span className="text-muted-foreground">Hostname</span>
+                        <span className="font-mono">{net.hostname}</span>
+                      </>
+                    )}
+                    <span className="text-muted-foreground">IPv4</span>
+                    <span className="font-mono">{net.ip_address || "-"}</span>
+                    {net.gateway && (
+                      <>
+                        <span className="text-muted-foreground">Gateway</span>
+                        <span className="font-mono">{net.gateway}</span>
+                      </>
+                    )}
+                    {net.mac_address && (
+                      <>
+                        <span className="text-muted-foreground">MAC</span>
+                        <span className="font-mono">{net.mac_address}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
               ))}
             </div>
+          </section>
+        )}
+
+        {/* Labels */}
+        {detail.labels.length > 0 && (
+          <section className="glass-section p-4">
+            <h2 className="mb-3 text-sm font-semibold">Labels</h2>
+            <div className="max-h-60 overflow-y-auto rounded-lg bg-black/10">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-white/5">
+                    <th className="text-left font-medium text-muted-foreground px-3 py-1.5">Key</th>
+                    <th className="text-left font-medium text-muted-foreground px-3 py-1.5">Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {detail.labels.map((label, i) => (
+                    <tr key={i} className="border-b border-white/5 last:border-0">
+                      <td className="font-mono px-3 py-1.5 text-muted-foreground whitespace-nowrap">{label.key}</td>
+                      <td className="font-mono px-3 py-1.5 break-all">{label.value}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+
+        {/* Raw Inspect */}
+        {detail.raw_json && (
+          <section className="glass-section p-4">
+            <button
+              className="flex items-center gap-2 text-sm font-semibold w-full text-left"
+              onClick={() => setShowRaw(!showRaw)}
+            >
+              <span className={`transition-transform ${showRaw ? 'rotate-90' : ''}`}>&#9654;</span>
+              Raw Inspect
+            </button>
+            {showRaw && (
+              <pre className="mt-3 text-[11px] font-mono bg-black/20 p-3 rounded-lg overflow-x-auto max-h-96 overflow-y-auto whitespace-pre-wrap break-all">
+                {detail.raw_json}
+              </pre>
+            )}
           </section>
         )}
       </div>

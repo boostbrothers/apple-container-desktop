@@ -318,11 +318,11 @@ export function GlobalEnvVarTable({ profile }: GlobalEnvVarTableProps) {
         <Button
           variant={newSecret ? "default" : "outline"}
           size="icon"
-          className="h-7 w-7 shrink-0"
+          className={`h-7 w-7 shrink-0 ${newSecret ? "bg-amber-500/20 border-amber-500/40 text-amber-400 hover:bg-amber-500/30" : ""}`}
           onClick={() => setNewSecret(!newSecret)}
-          title={newSecret ? "Secret" : "Not a secret"}
+          title={newSecret ? "Secret (encrypted)" : "Not a secret (click to encrypt)"}
         >
-          <Lock className="h-3.5 w-3.5" />
+          <Lock className={`h-3.5 w-3.5 ${newSecret ? "text-amber-400" : ""}`} />
         </Button>
         <Button
           variant="outline"

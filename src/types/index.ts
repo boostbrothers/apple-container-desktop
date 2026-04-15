@@ -6,8 +6,8 @@ export interface Container {
   status: string;
   ports: string;
   created_at: string;
-  compose_project: string | null;
-  compose_service: string | null;
+  project: string;
+  hostname: string;
 }
 
 export interface Image {
@@ -19,21 +19,16 @@ export interface Image {
   in_use: boolean;
 }
 
-export interface ColimaStatus {
+export interface SystemStatus {
   running: boolean;
-  runtime: string;
-  arch: string;
-  cpus: number;
-  memory_gib: number;
-  disk_gib: number;
+  version: string;
 }
 
-export interface VmSettings {
-  cpus: number;
-  memory_gib: number;
-  disk_gib: number;
-  runtime: string;
-  network_address: string;
+export interface ResourceSettings {
+  container_cpus: string;
+  container_memory: string;
+  build_cpus: string;
+  build_memory: string;
 }
 
 export interface HostInfo {
@@ -44,10 +39,11 @@ export interface HostInfo {
 export interface Volume {
   name: string;
   driver: string;
-  scope: string;
-  mountpoint: string;
-  labels: string;
+  format: string;
+  source: string;
   size: string;
+  created_at: number;
+  labels: Record<string, string>;
 }
 
 export interface Network {
@@ -60,35 +56,9 @@ export interface Network {
   labels: string;
 }
 
-export interface MountEntry {
-  location: string;
-  writable: boolean;
-}
-
-export interface MountSettings {
-  mounts: MountEntry[];
-  mount_type: string;
-  mount_inotify: boolean;
-}
-
-export interface DnsHostEntry {
-  hostname: string;
-  ip: string;
-}
-
-export interface NetworkSettings {
-  dns: string[];
-  dns_hosts: DnsHostEntry[];
-  network_address: boolean;
-  network_mode: string;
-  gateway_address: string;
-  network_interface: string;
-  port_forwarder: string;
-}
-
-export interface DockerDaemonSettings {
-  insecure_registries: string[];
-  registry_mirrors: string[];
+export interface LabelEntry {
+  key: string;
+  value: string;
 }
 
 export interface ContainerDetail {
@@ -105,6 +75,13 @@ export interface ContainerDetail {
   networks: NetworkInfo[];
   cmd: string;
   entrypoint: string;
+  hostname: string;
+  working_dir: string;
+  user: string;
+  labels: LabelEntry[];
+  restart_policy: string;
+  pid: number | null;
+  raw_json: string;
 }
 
 export interface PortBinding {
@@ -122,8 +99,10 @@ export interface MountInfo {
 
 export interface NetworkInfo {
   name: string;
+  hostname: string;
   ip_address: string;
   gateway: string;
+  mac_address: string;
 }
 
 export interface ContainerStats {
@@ -136,27 +115,24 @@ export interface ContainerStats {
   pids: string;
 }
 
-export interface ColimaVersion {
-  version: string;
-  git_commit: string;
-  runtime_versions: RuntimeVersion[];
-}
-
-export interface RuntimeVersion {
-  name: string;
+export interface ContainerVersion {
   version: string;
 }
 
-export interface VersionCheck {
-  current: string;
-  latest: string;
-  update_available: boolean;
-}
-
-export interface ColimaInstallCheck {
+export interface ContainerInstallCheck {
   installed: boolean;
   path: string | null;
 }
+
+export interface RegistryEntry {
+  registry: string;
+}
+
+export interface RegistrySettings {
+  registries: RegistryEntry[];
+  default_domain: string;
+}
+
 
 // Docker Project Execution types
 
@@ -177,7 +153,7 @@ export interface InfisicalConfig {
   token: string | null;
 }
 
-// ─── Global Environment Store ────────────────────────────────────────────────
+// --- Global Environment Store ---
 
 export interface GlobalEnvVar {
   key: string;
@@ -202,7 +178,48 @@ export interface ProjectEnvBinding {
   excluded_keys: string[];
 }
 
-export type ProjectType = "dockerfile" | "compose" | "devcontainer";
+export interface ProjectNetwork {
+  name: string;
+  driver: string | null;
+}
+
+export interface NamedVolume {
+  name: string;
+  driver: string | null;
+}
+
+export interface VolumeMount {
+  mount_type: "bind" | "volume";
+  source: string;
+  target: string;
+  readonly: boolean;
+}
+
+export interface Service {
+  id: string;
+  name: string;
+  image: string | null;
+  dockerfile: string | null;
+  ports: string[];
+  volumes: VolumeMount[] | null;
+  watch_mode: boolean | null;
+  startup_command: string | null;
+  remote_debug: boolean | null;
+  debug_port: number | null;
+  env_vars: EnvVarEntry[];
+  network: string | null;
+  restart: string | null;
+  depends_on: string[];
+}
+
+export interface ServiceStatus {
+  service_id: string;
+  service_name: string;
+  status: "running" | "stopped" | "not_created";
+  container_id: string | null;
+}
+
+export type ProjectType = "dockerfile";
 
 export interface Project {
   id: string;
@@ -211,12 +228,9 @@ export interface Project {
   project_type: ProjectType;
   env_vars: EnvVarEntry[];
   dotenv_path: string | null;
-  watch_mode: boolean;
   remote_debug: boolean;
   debug_port: number;
-  compose_file: string | null;
   dockerfile: string | null;
-  service_name: string | null;
   env_command: string | null;
   ports: string[];
   startup_command: string | null;
@@ -224,7 +238,17 @@ export interface Project {
   profiles: string[];
   infisical_config: InfisicalConfig | null;
   env_binding: ProjectEnvBinding;
-  domain: string | null;
+  dns_domain: string | null;
+  dns_hostname: string | null;
+  image: string | null;
+  network: string | null;
+  init_commands: string[];
+  volumes: VolumeMount[];
+  watch_mode: boolean;
+  services: Service[];
+  project_networks: ProjectNetwork[];
+  named_volumes: NamedVolume[];
+  service_statuses: ServiceStatus[];
   status: "running" | "stopped" | "not_created" | "path_missing" | "unknown";
   container_ids: string[];
 }
@@ -236,75 +260,13 @@ export interface AppSettings {
 
 export interface ProjectTypeDetection {
   has_dockerfile: boolean;
-  has_compose: boolean;
-  has_devcontainer: boolean;
-  compose_files: string[];
   dockerfiles: string[];
   dotenv_files: string[];
 }
 
-// DevContainer Config Editor types
+// --- DNS ---
 
-export interface DevcontainerConfigResponse {
-  config: Record<string, unknown>;
-  exists: boolean;
-}
-
-export interface DevcontainerValidationError {
-  path: string;
-  message: string;
-}
-
-export type ConfigTab = "general" | "features" | "ports-env" | "lifecycle" | "json";
-export type DevcontainerSourceType = "image" | "dockerfile";
-
-// ─── Container Domains (DNS + Reverse Proxy) ───────────────────────────────
-
-export interface DomainConfig {
-  enabled: boolean;
-  auto_register: boolean;
-  domain_suffix: string;
-  container_overrides: Record<string, ContainerDomainOverride>;
-}
-
-export interface PortRoute {
-  host_port: number;
-  container_port: number;
-}
-
-export interface ContainerDomainOverride {
-  enabled: boolean;
-  hostname?: string | null;
-  port?: number | null;
-  port_routes?: PortRoute[];
-}
-
-export interface DomainServiceEntry {
-  container_id: string;
-  container_name: string;
-  hostname: string;
-  domain: string;
-  port: number;
-  registered: boolean;
-  auto_registered: boolean;
-}
-
-export interface DomainSyncResult {
-  services: DomainServiceEntry[];
-}
-
-export interface ProxyRoute {
-  hostname: string;
-  domain: string;
-  target_port: number;
-  container_name: string;
-}
-
-export interface ProxyStatus {
-  running: boolean;
-  gateway_running: boolean;
-  dns_port: number;
-  domain_suffix: string;
-  resolver_installed: boolean;
-  routes: ProxyRoute[];
+export interface DnsList {
+  domains: string[];
+  default_domain: string;
 }

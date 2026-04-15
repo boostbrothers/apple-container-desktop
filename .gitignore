@@ -26,3 +26,4 @@ dist-ssr
 # Superpowers brainstorm sessions
 .superpowers/
 .worktrees
+.serena

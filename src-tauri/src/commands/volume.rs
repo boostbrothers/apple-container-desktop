@@ -1,10 +1,10 @@
-use crate::cli::executor::{docker_cmd, CliExecutor};
-use crate::cli::types::{DockerVolumeEntry, Volume};
+use crate::cli::executor::{container_cmd, CliExecutor};
+use crate::cli::types::{VolumeListEntry, Volume};
 
 #[tauri::command]
 pub async fn list_volumes() -> Result<Vec<Volume>, String> {
-    let entries: Vec<DockerVolumeEntry> =
-        CliExecutor::run_json_lines(docker_cmd(), &["volume", "ls", "--format", "json"]).await?;
+    let entries: Vec<VolumeListEntry> =
+        CliExecutor::run_json_array(container_cmd(), &["volume", "list", "--format", "json"]).await?;
     Ok(entries.into_iter().map(Volume::from).collect())
 }
 
@@ -20,16 +20,16 @@ pub async fn create_volume(name: String, driver: Option<String>) -> Result<Strin
         }
     }
     args.push(&name);
-    CliExecutor::run(docker_cmd(), &args).await
+    CliExecutor::run(container_cmd(), &args).await
 }
 
 #[tauri::command]
 pub async fn remove_volume(name: String) -> Result<(), String> {
-    CliExecutor::run(docker_cmd(), &["volume", "rm", &name]).await?;
+    CliExecutor::run(container_cmd(), &["volume", "delete", &name]).await?;
     Ok(())
 }
 
 #[tauri::command]
 pub async fn prune_volumes() -> Result<String, String> {
-    CliExecutor::run(docker_cmd(), &["volume", "prune", "-f"]).await
+    CliExecutor::run(container_cmd(), &["volume", "prune"]).await
 }

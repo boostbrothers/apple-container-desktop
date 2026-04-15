@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Colima Desktop",
-  "version": "0.8.0",
-  "identifier": "com.yoonhogo.colima-desktop",
+  "productName": "Apple Container Desktop",
+  "version": "0.1.0",
+  "identifier": "com.boostbrothers.apple-container-desktop",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Colima Desktop",
+        "title": "Apple Container Desktop",
         "width": 800,
         "height": 600,
         "transparent": true
@@ -37,9 +37,9 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEE3NDAzREMxMjYzNjJBQjEKUldTeEtqWW13VDFBcDFGWTRia05GSVV0T0lMQWIrRGMvK0hHcHA4d3cxZnIybm9UNW1jRGo5VSsK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEIxQkRDREMxNTZGODUyMTIKUldRU1V2aFd3YzI5c1hoMitVUG1GUlZKRnk4NDhtRmpKSW4yd1AvR0J2cVhYMFpISGdYOGx5ajYK",
       "endpoints": [
-        "https://github.com/yoonhoGo/colima-desktop/releases/latest/download/latest.json"
+        "https://github.com/boostbrothers/apple-container-desktop/releases/latest/download/latest.json"
       ]
     }
   }

@@ -28,7 +28,7 @@ export function VolumeList() {
       </div>
       <div className="mb-4"><VolumeCreate /></div>
       {isLoading && <p className="text-sm text-muted-foreground">Loading...</p>}
-      {error && <p className="text-sm text-destructive">Failed to load volumes. Is Colima running?</p>}
+      {error && <p className="text-sm text-destructive">Failed to load volumes.</p>}
       <div className="flex flex-col gap-2">
         {volumes?.map((volume) => <VolumeRow key={volume.name} volume={volume} />)}
         {volumes?.length === 0 && !isLoading && <p className="text-sm text-muted-foreground">No volumes found.</p>}

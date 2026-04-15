@@ -1,11 +1,14 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Container, Image, ColimaStatus, VmSettings, HostInfo, Volume, Network, MountSettings, MountEntry, NetworkSettings, DnsHostEntry, DockerDaemonSettings, ContainerDetail, ContainerStats, ColimaVersion, VersionCheck, ColimaInstallCheck, Project, ProjectTypeDetection, EnvVarEntry, InfisicalConfig, AppSettings, DevcontainerConfigResponse, DevcontainerValidationError, GlobalEnvVar, EnvProfile, ProjectEnvBinding, DomainConfig, ContainerDomainOverride, DomainSyncResult, ProxyStatus } from "../types";
+import type { Container, Image, SystemStatus, ResourceSettings, HostInfo, Volume, Network, ContainerDetail, ContainerStats, ContainerVersion, ContainerInstallCheck, RegistrySettings, Project, ProjectTypeDetection, EnvVarEntry, InfisicalConfig, AppSettings, GlobalEnvVar, EnvProfile, ProjectEnvBinding, DnsList, Service } from "../types";
 
 export const api = {
-  colimaStatus: () => invoke<ColimaStatus>("colima_status"),
-  colimaStart: () => invoke<void>("colima_start"),
-  colimaStop: () => invoke<void>("colima_stop"),
-  colimaRestart: () => invoke<void>("colima_restart"),
+  // System
+  systemStatus: () => invoke<SystemStatus>("system_status"),
+  systemStart: () => invoke<void>("system_start"),
+  systemStop: () => invoke<void>("system_stop"),
+  systemRestart: () => invoke<void>("system_restart"),
+
+  // Containers
   listContainers: () => invoke<Container[]>("list_containers"),
   containerStart: (id: string) => invoke<void>("container_start", { id }),
   containerStop: (id: string) => invoke<void>("container_stop", { id }),
@@ -15,56 +18,54 @@ export const api = {
   pruneContainers: () => invoke<string>("prune_containers"),
   runContainer: (params: { image: string; name?: string; ports?: string; envVars?: string[] }) =>
     invoke<string>("run_container", params),
+  containerInspect: (id: string) => invoke<ContainerDetail>("container_inspect", { id }),
+  containerStats: (id: string) => invoke<ContainerStats>("container_stats", { id }),
+
+  // Images
   listImages: () => invoke<Image[]>("list_images"),
   pullImage: (name: string) => invoke<void>("pull_image", { name }),
   removeImage: (id: string) => invoke<void>("remove_image", { id }),
   pruneImages: () => invoke<string>("prune_images"),
-  getVmSettings: () => invoke<VmSettings>("get_vm_settings"),
+
+  // Resource Settings (was VM Settings)
+  getResourceSettings: () => invoke<ResourceSettings>("get_resource_settings"),
   getHostInfo: () => invoke<HostInfo>("get_host_info"),
-  applyVmSettings: (settings: { cpus: number; memoryGib: number; diskGib: number; runtime: string; networkAddress: string }) =>
-    invoke<void>("apply_vm_settings", settings),
+  applyResourceSettings: (settings: { containerCpus: string; containerMemory: string; buildCpus: string; buildMemory: string }) =>
+    invoke<void>("apply_resource_settings", settings),
+
+  // Volumes
   listVolumes: () => invoke<Volume[]>("list_volumes"),
   createVolume: (params: { name: string; driver?: string }) => invoke<string>("create_volume", params),
   removeVolume: (name: string) => invoke<void>("remove_volume", { name }),
   pruneVolumes: () => invoke<string>("prune_volumes"),
+
+  // Networks
   listNetworks: () => invoke<Network[]>("list_networks"),
   createNetwork: (params: { name: string; driver?: string }) => invoke<string>("create_network", params),
   removeNetwork: (id: string) => invoke<void>("remove_network", { id }),
   pruneNetworks: () => invoke<string>("prune_networks"),
-  getMountSettings: () => invoke<MountSettings>("get_mount_settings"),
-  saveMountSettings: (params: { mounts: MountEntry[]; mountType: string; mountInotify: boolean }) =>
-    invoke<void>("save_mount_settings", params),
-  getNetworkSettings: () => invoke<NetworkSettings>("get_network_settings"),
-  saveNetworkSettings: (params: {
-    dns: string[];
-    dnsHosts: DnsHostEntry[];
-    networkAddress: boolean;
-    networkMode: string;
-    gatewayAddress: string;
-    networkInterface: string;
-    portForwarder: string;
-  }) => invoke<void>("save_network_settings", params),
-  getDockerSettings: () => invoke<DockerDaemonSettings>("get_docker_settings"),
-  saveDockerSettings: (params: { insecureRegistries: string[]; registryMirrors: string[] }) =>
-    invoke<void>("save_docker_settings", params),
-  containerInspect: (id: string) => invoke<ContainerDetail>("container_inspect", { id }),
-  containerStats: (id: string) => invoke<ContainerStats>("container_stats", { id }),
-  getColimaVersion: () => invoke<ColimaVersion>("get_colima_version"),
-  updateColimaRuntime: () => invoke<string>("update_colima_runtime"),
-  checkLatestVersion: () => invoke<VersionCheck>("check_latest_version"),
-  checkColimaInstalled: () => invoke<ColimaInstallCheck>("check_colima_installed"),
+
+  // Registry Settings (was Docker Settings)
+  getRegistrySettings: () => invoke<RegistrySettings>("get_registry_settings"),
+  registryLogin: (params: { registry: string; username: string; password: string }) =>
+    invoke<void>("registry_login", params),
+  registryLogout: (registry: string) => invoke<void>("registry_logout", { registry }),
+  setDefaultRegistry: (domain: string) => invoke<void>("set_default_registry", { domain }),
+
+  // Version & Install
+  getContainerVersion: () => invoke<ContainerVersion>("get_container_version"),
+  checkContainerInstalled: () => invoke<ContainerInstallCheck>("check_container_installed"),
   checkOnboardingNeeded: () => invoke<boolean>("check_onboarding_needed"),
   completeOnboarding: () => invoke<void>("complete_onboarding"),
 
-  // Projects (unified)
-  checkDevcontainerCli: () => invoke<boolean>("check_devcontainer_cli"),
+  // Projects
   detectProjectType: (workspacePath: string) =>
     invoke<ProjectTypeDetection>("detect_project_type", { workspacePath }),
   listProjects: () =>
     invoke<Project[]>("list_projects"),
-  addProject: (params: { name: string; workspacePath: string; projectType: string; composeFile?: string; dockerfile?: string }) =>
+  addProject: (params: { name: string; workspacePath: string; dockerfile?: string }) =>
     invoke<Project>("add_project", params),
-  updateProject: (project: Omit<Project, "status" | "container_ids">) =>
+  updateProject: (project: Omit<Project, "status" | "container_ids" | "service_statuses">) =>
     invoke<void>("update_project", { project }),
   removeProject: (id: string, stopContainers: boolean) =>
     invoke<void>("remove_project", { id, stopContainers }),
@@ -82,6 +83,16 @@ export const api = {
     invoke<EnvVarEntry[]>("run_env_command", { command, workspacePath }),
   openTerminalExec: (containerId: string) =>
     invoke<void>("open_terminal_exec", { containerId }),
+  addService: (projectId: string, service: Service) =>
+    invoke<Project>("add_service", { projectId, service }),
+  updateService: (projectId: string, service: Service) =>
+    invoke<Project>("update_service", { projectId, service }),
+  removeService: (projectId: string, serviceId: string) =>
+    invoke<Project>("remove_service", { projectId, serviceId }),
+  importCompose: (projectId: string, filePath: string) =>
+    invoke<Project>("import_compose", { projectId, filePath }),
+  exportCompose: (projectId: string, filePath: string) =>
+    invoke<void>("export_compose", { projectId, filePath }),
   getAppSettings: () =>
     invoke<AppSettings>("get_app_settings"),
   saveAppSettings: (params: { terminal: string; shell: string }) =>
@@ -112,14 +123,6 @@ export const api = {
     invoke<EnvVarEntry[]>("sync_infisical", { projectId }),
   testInfisicalConnection: (projectId: string) =>
     invoke<boolean>("test_infisical_connection", { projectId }),
-
-  // DevContainer Config
-  readDevcontainerJson: (workspacePath: string) =>
-    invoke<DevcontainerConfigResponse>("read_devcontainer_json", { workspacePath }),
-  writeDevcontainerJson: (workspacePath: string, config: Record<string, unknown>) =>
-    invoke<void>("write_devcontainer_json", { workspacePath, config }),
-  validateDevcontainerJson: (config: Record<string, unknown>) =>
-    invoke<DevcontainerValidationError[]>("validate_devcontainer_json", { config }),
 
   // Global Env Store
   listEnvProfiles: () =>
@@ -153,17 +156,9 @@ export const api = {
   decryptProjectEnvSecret: (projectId: string, key: string, profile: string) =>
     invoke<string>("decrypt_project_env_secret", { projectId, key, profile }),
 
-  // Container Domains (DNS + Reverse Proxy)
-  domainGetConfig: () => invoke<DomainConfig>("domain_get_config"),
-  domainSetConfig: (config: DomainConfig) => invoke<void>("domain_set_config", { config }),
-  domainSetOverride: (containerName: string, overrideConfig: ContainerDomainOverride) =>
-    invoke<void>("domain_set_override", { containerName, overrideConfig }),
-  domainRemoveOverride: (containerName: string) =>
-    invoke<void>("domain_remove_override", { containerName }),
-  domainSync: () => invoke<DomainSyncResult>("domain_sync"),
-  proxyStart: () => invoke<void>("proxy_start"),
-  proxyStop: () => invoke<void>("proxy_stop"),
-  proxyGetStatus: () => invoke<ProxyStatus>("proxy_get_status"),
-  proxyInstallResolver: () => invoke<void>("proxy_install_resolver"),
-  proxyUninstallResolver: () => invoke<void>("proxy_uninstall_resolver"),
+  // DNS
+  dnsList: () => invoke<DnsList>("dns_list"),
+  dnsCreate: (domain: string) => invoke<void>("dns_create", { domain }),
+  dnsDelete: (domain: string) => invoke<void>("dns_delete", { domain }),
+  dnsSetDefault: (domain: string) => invoke<void>("dns_set_default", { domain }),
 };
