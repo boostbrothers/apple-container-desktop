@@ -1725,14 +1725,14 @@ devcontainer-config/ 삭제, Compose/DevContainer UI 분기 제거,
 ```json
 {
   "productName": "Apple Container Desktop",
-  "identifier": "com.yoonhogo.apple-container-desktop",
+  "identifier": "com.boostbrothers.apple-container-desktop",
   "app": {
     "windows": [{ "title": "Apple Container Desktop", ... }]
   },
   "plugins": {
     "updater": {
       "endpoints": [
-        "https://github.com/yoonhoGo/apple-container-desktop/releases/latest/download/latest.json"
+        "https://github.com/boostbrothers/apple-container-desktop/releases/latest/download/latest.json"
       ]
     }
   }

@@ -37,7 +37,7 @@ Built with **Tauri 2** (Rust) + **React 19** + **TypeScript**.
 
 ### Download from GitHub Releases
 
-Pre-built binaries are available on the [Releases](https://github.com/yoonhoGo/apple-container-desktop/releases) page.
+Pre-built binaries are available on the [Releases](https://github.com/boostbrothers/apple-container-desktop/releases) page.
 
 | Platform | File |
 |----------|------|
@@ -47,7 +47,7 @@ Pre-built binaries are available on the [Releases](https://github.com/yoonhoGo/a
 
 ```bash
 # Clone the repository
-git clone https://github.com/yoonhoGo/apple-container-desktop.git
+git clone https://github.com/boostbrothers/apple-container-desktop.git
 cd apple-container-desktop
 
 # Install dependencies

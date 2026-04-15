@@ -37,7 +37,7 @@
 
 ### GitHub Releases에서 다운로드
 
-빌드된 바이너리는 [Releases](https://github.com/yoonhoGo/apple-container-desktop/releases) 페이지에서 다운로드할 수 있습니다.
+빌드된 바이너리는 [Releases](https://github.com/boostbrothers/apple-container-desktop/releases) 페이지에서 다운로드할 수 있습니다.
 
 | 플랫폼 | 파일 |
 |--------|------|
@@ -47,7 +47,7 @@
 
 ```bash
 # 저장소 클론
-git clone https://github.com/yoonhoGo/apple-container-desktop.git
+git clone https://github.com/boostbrothers/apple-container-desktop.git
 cd apple-container-desktop
 
 # 의존성 설치
