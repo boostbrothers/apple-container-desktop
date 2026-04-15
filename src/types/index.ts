@@ -116,11 +116,6 @@ export interface RegistrySettings {
   default_domain: string;
 }
 
-export interface DomainStatus {
-  enabled: boolean;
-  domain_suffix: string;
-  dns_domains: string[];
-}
 
 // Docker Project Execution types
 
