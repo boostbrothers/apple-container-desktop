@@ -24,10 +24,10 @@ async fn fetch_system_status() -> SystemStatus {
     }
 }
 
-async fn fetch_running_containers() -> Vec<Container> {
-    match CliExecutor::run_json_lines::<ContainerListEntry>(
+async fn fetch_all_containers() -> Vec<Container> {
+    match CliExecutor::run_json_array::<ContainerListEntry>(
         container_cmd(),
-        &["ps", "--format", "json"],
+        &["list", "-a", "--format", "json"],
     )
     .await
     {
@@ -67,7 +67,13 @@ fn build_tray_menu<R: Runtime>(
 
     // -- Container section --
     if status.running && !containers.is_empty() {
-        let header = format!("Containers ({})", containers.len());
+        let running_count = containers.iter().filter(|c| c.state == "running").count();
+        let stopped_count = containers.len() - running_count;
+        let header = format!(
+            "Containers ({} running{})",
+            running_count,
+            if stopped_count > 0 { format!(", {} stopped", stopped_count) } else { String::new() }
+        );
         builder = builder.item(&MenuItem::with_id(
             app,
             "containers_header",
@@ -76,29 +82,61 @@ fn build_tray_menu<R: Runtime>(
             None::<&str>,
         )?);
 
-        for container in containers.iter().take(10) {
-            let label = format!("  {} ({})", container.name, container.image);
-            let stop_id = format!("container_stop_{}", container.id);
-            let submenu = Submenu::with_items(
-                app,
-                &label,
-                true,
-                &[
-                    &MenuItem::with_id(
-                        app,
-                        &format!("container_restart_{}", container.id),
-                        "Restart",
-                        true,
-                        None::<&str>,
-                    )?,
-                    &MenuItem::with_id(app, &stop_id, "Stop", true, None::<&str>)?,
-                ],
-            )?;
+        for container in containers.iter().take(15) {
+            let is_running = container.state == "running";
+            let state_icon = if is_running { "●" } else { "○" };
+            let label = format!("{} {} ({})", state_icon, container.name, container.image);
+
+            let submenu = if is_running {
+                Submenu::with_items(
+                    app,
+                    &label,
+                    true,
+                    &[
+                        &MenuItem::with_id(
+                            app,
+                            &format!("container_restart_{}", container.id),
+                            "Restart",
+                            true,
+                            None::<&str>,
+                        )?,
+                        &MenuItem::with_id(
+                            app,
+                            &format!("container_stop_{}", container.id),
+                            "Stop",
+                            true,
+                            None::<&str>,
+                        )?,
+                    ],
+                )?
+            } else {
+                Submenu::with_items(
+                    app,
+                    &label,
+                    true,
+                    &[
+                        &MenuItem::with_id(
+                            app,
+                            &format!("container_start_{}", container.id),
+                            "Start",
+                            true,
+                            None::<&str>,
+                        )?,
+                        &MenuItem::with_id(
+                            app,
+                            &format!("container_remove_{}", container.id),
+                            "Remove",
+                            true,
+                            None::<&str>,
+                        )?,
+                    ],
+                )?
+            };
             builder = builder.item(&submenu);
         }
 
-        if containers.len() > 10 {
-            let more = format!("  ... and {} more", containers.len() - 10);
+        if containers.len() > 15 {
+            let more = format!("  ... and {} more", containers.len() - 15);
             builder = builder.item(&MenuItem::with_id(
                 app,
                 "more_containers",
@@ -113,7 +151,7 @@ fn build_tray_menu<R: Runtime>(
         builder = builder.item(&MenuItem::with_id(
             app,
             "no_containers",
-            "No running containers",
+            "No containers",
             false,
             None::<&str>,
         )?);
@@ -243,6 +281,22 @@ pub fn create_tray<R: Runtime>(app: &tauri::App<R>) -> tauri::Result<()> {
                             let _ = app.emit("system-status-changed", ());
                             refresh_tray(&app).await;
                         });
+                    } else if let Some(container_id) = id.strip_prefix("container_start_") {
+                        let app = app.clone();
+                        let container_id = container_id.to_string();
+                        tauri::async_runtime::spawn(async move {
+                            let _ = crate::commands::container::container_start(container_id).await;
+                            let _ = app.emit("system-status-changed", ());
+                            refresh_tray(&app).await;
+                        });
+                    } else if let Some(container_id) = id.strip_prefix("container_remove_") {
+                        let app = app.clone();
+                        let container_id = container_id.to_string();
+                        tauri::async_runtime::spawn(async move {
+                            let _ = crate::commands::container::container_remove(container_id).await;
+                            let _ = app.emit("system-status-changed", ());
+                            refresh_tray(&app).await;
+                        });
                     }
                 }
             }
@@ -290,7 +344,7 @@ struct TrayState(tauri::tray::TrayIconId);
 async fn refresh_tray<R: Runtime>(app: &tauri::AppHandle<R>) {
     let status = fetch_system_status().await;
     let containers = if status.running {
-        fetch_running_containers().await
+        fetch_all_containers().await
     } else {
         Vec::new()
     };
