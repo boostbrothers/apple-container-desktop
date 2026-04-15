@@ -18,9 +18,9 @@ export function VolumeRow({ volume }: VolumeRowProps) {
           <Badge variant="outline" className="text-xs">{volume.driver}</Badge>
         </div>
         <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
-          <span>{volume.scope}</span>
-          {volume.size && volume.size !== "N/A" && <span>{volume.size}</span>}
-          <span className="truncate">{volume.mountpoint}</span>
+          {volume.format && <span>{volume.format}</span>}
+          {volume.size && <span>{volume.size}</span>}
+          <span className="truncate">{volume.source}</span>
         </div>
       </div>
       <Button

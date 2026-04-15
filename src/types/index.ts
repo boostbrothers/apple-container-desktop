@@ -39,10 +39,11 @@ export interface HostInfo {
 export interface Volume {
   name: string;
   driver: string;
-  scope: string;
-  mountpoint: string;
-  labels: string;
+  format: string;
+  source: string;
   size: string;
+  created_at: number;
+  labels: Record<string, string>;
 }
 
 export interface Network {
