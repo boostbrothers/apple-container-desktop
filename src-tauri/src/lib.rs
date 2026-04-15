@@ -1,7 +1,7 @@
 mod cli;
 mod commands;
 pub mod crypto;
-pub mod proxy;
+
 mod tray;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -67,6 +67,11 @@ pub fn run() {
             commands::project::load_dotenv_file,
             commands::project::run_env_command,
             commands::project::open_terminal_exec,
+            commands::project::add_service,
+            commands::project::update_service,
+            commands::project::remove_service,
+            commands::project::import_compose,
+            commands::project::export_compose,
             // Onboarding
             commands::onboarding::check_container_installed,
             commands::onboarding::check_onboarding_needed,
@@ -103,12 +108,11 @@ pub fn run() {
             // App Settings
             commands::app_settings::get_app_settings,
             commands::app_settings::save_app_settings,
-            // Container Domains (Apple Container built-in DNS)
-            commands::proxy::domain_get_config,
-            commands::proxy::domain_set_config,
-            commands::proxy::domain_setup,
-            commands::proxy::domain_teardown,
-            commands::proxy::domain_status,
+            // DNS (Apple Container built-in DNS)
+            commands::proxy::dns_list,
+            commands::proxy::dns_create,
+            commands::proxy::dns_delete,
+            commands::proxy::dns_set_default,
         ])
         .setup(|app| {
             tray::create_tray(app)?;
