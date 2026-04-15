@@ -25,9 +25,11 @@ import {
   Upload,
   Download,
   Globe,
+  ExternalLink,
 } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
 import { open, save } from "@tauri-apps/plugin-dialog";
+import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import type { Project, VolumeMount, Service, ProjectNetwork, NamedVolume } from "../../types";
 import {
   useUpdateProject,
@@ -217,9 +219,29 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
                 </Badge>
               )}
             </div>
-            <span className="text-xs text-muted-foreground truncate block">
-              {project.workspace_path}
-            </span>
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-muted-foreground truncate">
+                {project.workspace_path}
+              </span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-5 w-5 shrink-0"
+                onClick={() => navigator.clipboard.writeText(project.workspace_path)}
+                title="Copy path"
+              >
+                <Copy className="h-3 w-3" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-5 w-5 shrink-0"
+                onClick={() => revealItemInDir(project.workspace_path)}
+                title="Open in Finder"
+              >
+                <FolderOpen className="h-3 w-3" />
+              </Button>
+            </div>
           </div>
           <div className="flex gap-1 shrink-0">
             {project.status === "running" ? (
