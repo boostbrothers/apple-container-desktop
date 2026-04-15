@@ -161,6 +161,16 @@ export interface ProjectEnvBinding {
   excluded_keys: string[];
 }
 
+export interface ProjectNetwork {
+  name: string;
+  driver: string | null;
+}
+
+export interface NamedVolume {
+  name: string;
+  driver: string | null;
+}
+
 export interface VolumeMount {
   mount_type: "bind" | "volume";
   source: string;
@@ -181,6 +191,8 @@ export interface Service {
   debug_port: number | null;
   env_vars: EnvVarEntry[];
   network: string | null;
+  restart: string | null;
+  depends_on: string[];
 }
 
 export interface ServiceStatus {
@@ -217,6 +229,8 @@ export interface Project {
   volumes: VolumeMount[];
   watch_mode: boolean;
   services: Service[];
+  project_networks: ProjectNetwork[];
+  named_volumes: NamedVolume[];
   service_statuses: ServiceStatus[];
   status: "running" | "stopped" | "not_created" | "path_missing" | "unknown";
   container_ids: string[];
