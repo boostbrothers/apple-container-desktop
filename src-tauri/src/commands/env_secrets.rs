@@ -44,6 +44,12 @@ fn mask_project_secrets(mut pws: ProjectWithStatus) -> ProjectWithStatus {
             var.value = "••••••••".to_string();
         }
     }
+    // Mask Infisical service token
+    if let Some(ref mut cfg) = pws.infisical_config {
+        if cfg.token.as_ref().is_some_and(|t| !t.is_empty()) {
+            cfg.token = Some("••••••••".to_string());
+        }
+    }
     pws
 }
 
@@ -279,10 +285,22 @@ pub async fn check_infisical_installed() -> Result<bool, String> {
 #[tauri::command]
 pub async fn configure_infisical(
     project_id: String,
-    config: InfisicalConfig,
+    mut config: InfisicalConfig,
 ) -> Result<ProjectWithStatus, String> {
     let projects = load_projects()?;
     let mut project = find_project(&projects, &project_id)?;
+
+    // If frontend sent back the masked placeholder, preserve existing encrypted token
+    if let Some(ref token) = config.token {
+        if token == "••••••••" {
+            config.token = project
+                .infisical_config
+                .as_ref()
+                .and_then(|c| c.token.clone());
+        } else if !token.is_empty() {
+            config.token = Some(crypto::ensure_encrypted(token)?);
+        }
+    }
 
     project.infisical_config = Some(config);
 
@@ -316,7 +334,8 @@ pub async fn sync_infisical(project_id: String) -> Result<Vec<EnvVarEntry>, Stri
     ];
     if let Some(ref token) = cfg.token {
         if !token.is_empty() {
-            args.push(format!("--token={}", token));
+            let decrypted_token = crypto::decrypt(token)?;
+            args.push(format!("--token={}", decrypted_token));
         }
     }
     let str_args: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
@@ -394,7 +413,8 @@ pub async fn test_infisical_connection(project_id: String) -> Result<bool, Strin
     ];
     if let Some(ref token) = cfg.token {
         if !token.is_empty() {
-            args.push(format!("--token={}", token));
+            let decrypted_token = crypto::decrypt(token)?;
+            args.push(format!("--token={}", decrypted_token));
         }
     }
     let str_args: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
