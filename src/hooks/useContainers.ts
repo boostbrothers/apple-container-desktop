@@ -37,7 +37,7 @@ export function usePruneContainers() {
 export function useRunContainer() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (params: { image: string; name?: string; ports?: string; envVars?: string[] }) =>
+    mutationFn: (params: { image: string; name?: string; ports?: string; envVars?: string[]; cpus?: string; memory?: string }) =>
       api.runContainer(params),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["containers"] }); },
   });

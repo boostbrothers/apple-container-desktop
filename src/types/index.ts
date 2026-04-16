@@ -210,6 +210,8 @@ export interface Service {
   network: string | null;
   restart: string | null;
   depends_on: string[];
+  cpus: string | null;
+  memory: string | null;
 }
 
 export interface ServiceStatus {
@@ -245,6 +247,8 @@ export interface Project {
   init_commands: string[];
   volumes: VolumeMount[];
   watch_mode: boolean;
+  cpus: string | null;
+  memory: string | null;
   services: Service[];
   project_networks: ProjectNetwork[];
   named_volumes: NamedVolume[];

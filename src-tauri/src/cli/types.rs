@@ -493,6 +493,10 @@ pub struct Service {
     pub restart: Option<String>,  // "no" | "always" | "on-failure" | "unless-stopped"
     #[serde(default)]
     pub depends_on: Vec<String>,
+    #[serde(default)]
+    pub cpus: Option<String>,
+    #[serde(default)]
+    pub memory: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -667,6 +671,10 @@ pub struct Project {
     #[serde(default = "default_true")]
     pub watch_mode: bool,
     #[serde(default)]
+    pub cpus: Option<String>,
+    #[serde(default)]
+    pub memory: Option<String>,
+    #[serde(default)]
     pub services: Vec<Service>,
     #[serde(default, alias = "compose_networks")]
     pub project_networks: Vec<ProjectNetwork>,
@@ -708,6 +716,8 @@ pub struct ProjectWithStatus {
     pub init_commands: Vec<String>,
     pub volumes: Vec<VolumeMount>,
     pub watch_mode: bool,
+    pub cpus: Option<String>,
+    pub memory: Option<String>,
     pub services: Vec<Service>,
     pub project_networks: Vec<ProjectNetwork>,
     pub named_volumes: Vec<NamedVolume>,
@@ -748,6 +758,8 @@ impl Project {
             init_commands: self.init_commands,
             volumes: self.volumes,
             watch_mode: self.watch_mode,
+            cpus: self.cpus,
+            memory: self.memory,
             services: self.services,
             project_networks: self.project_networks,
             named_volumes: self.named_volumes,

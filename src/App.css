@@ -303,6 +303,50 @@
     border: 1px solid var(--glass-border);
   }
 
+  /* Resource slider — glass-themed range input */
+  .resource-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--glass-border);
+    outline: none;
+    cursor: pointer;
+  }
+  .resource-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: hsl(var(--primary));
+    border: 2px solid rgba(255, 255, 255, 0.9);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .resource-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.15);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+  .resource-slider::-webkit-slider-thumb:active {
+    transform: scale(1.05);
+  }
+  .resource-slider::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: hsl(var(--primary));
+    border: 2px solid rgba(255, 255, 255, 0.9);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+    cursor: pointer;
+  }
+  .resource-slider::-moz-range-track {
+    height: 6px;
+    border-radius: 3px;
+    background: var(--glass-border);
+  }
+
   .glass-group {
     background: rgba(255, 255, 255, 0.35);
     backdrop-filter: blur(16px) saturate(160%);

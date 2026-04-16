@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Loader2 } from "lucide-react";
+import { CpuSlider, MemorySlider } from "@/components/ui/resource-slider";
 import { useResourceSettings, useHostInfo, useApplyResourceSettings } from "@/hooks/useResourceSettings";
 import { useSystemStatus } from "@/hooks/useSystemStatus";
 
@@ -75,59 +75,23 @@ export function ResourceSettingsPanel() {
       </p>
 
       <div className="space-y-5">
-        {/* Container CPUs */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Container CPUs</label>
-          <Input
-            placeholder="e.g. 4"
-            value={containerCpus}
-            onChange={(e) => setContainerCpus(e.target.value)}
-            disabled={applyMutation.isPending}
-          />
+        {/* Container Resources */}
+        <div className="glass-panel rounded-lg p-4 space-y-4">
+          <h3 className="text-sm font-semibold">Container Defaults</h3>
+          <CpuSlider value={containerCpus} onChange={setContainerCpus} maxCpus={maxCpus} />
+          <MemorySlider value={containerMemory} onChange={setContainerMemory} maxMemoryGiB={maxMemoryGib} />
           <p className="text-[10px] text-muted-foreground">
-            CPU limit for running containers.
+            Default resource limits for running containers.
           </p>
         </div>
 
-        {/* Container Memory */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Container Memory</label>
-          <Input
-            placeholder="e.g. 4GiB"
-            value={containerMemory}
-            onChange={(e) => setContainerMemory(e.target.value)}
-            disabled={applyMutation.isPending}
-          />
+        {/* Build Resources */}
+        <div className="glass-panel rounded-lg p-4 space-y-4">
+          <h3 className="text-sm font-semibold">Builder Defaults</h3>
+          <CpuSlider value={buildCpus} onChange={setBuildCpus} maxCpus={maxCpus} />
+          <MemorySlider value={buildMemory} onChange={setBuildMemory} maxMemoryGiB={maxMemoryGib} />
           <p className="text-[10px] text-muted-foreground">
-            Memory limit for running containers.
-          </p>
-        </div>
-
-        {/* Build CPUs */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Build CPUs</label>
-          <Input
-            placeholder="e.g. 8"
-            value={buildCpus}
-            onChange={(e) => setBuildCpus(e.target.value)}
-            disabled={applyMutation.isPending}
-          />
-          <p className="text-[10px] text-muted-foreground">
-            CPU limit for building images.
-          </p>
-        </div>
-
-        {/* Build Memory */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Build Memory</label>
-          <Input
-            placeholder="e.g. 8GiB"
-            value={buildMemory}
-            onChange={(e) => setBuildMemory(e.target.value)}
-            disabled={applyMutation.isPending}
-          />
-          <p className="text-[10px] text-muted-foreground">
-            Memory limit for building images.
+            Default resource limits for building images.
           </p>
         </div>
       </div>

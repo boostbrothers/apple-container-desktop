@@ -16,7 +16,7 @@ export const api = {
   containerRemove: (id: string) => invoke<void>("container_remove", { id }),
   streamContainerLogs: (id: string) => invoke<void>("stream_container_logs", { id }),
   pruneContainers: () => invoke<string>("prune_containers"),
-  runContainer: (params: { image: string; name?: string; ports?: string; envVars?: string[] }) =>
+  runContainer: (params: { image: string; name?: string; ports?: string; envVars?: string[]; cpus?: string; memory?: string }) =>
     invoke<string>("run_container", params),
   containerInspect: (id: string) => invoke<ContainerDetail>("container_inspect", { id }),
   containerStats: (id: string) => invoke<ContainerStats>("container_stats", { id }),
