@@ -26,6 +26,7 @@ import {
   Download,
   Globe,
   ExternalLink,
+  Cpu,
 } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
 import { open, save } from "@tauri-apps/plugin-dialog";
@@ -46,6 +47,8 @@ import { useVolumes } from "../../hooks/useVolumes";
 import { useDnsList } from "../../hooks/useDns";
 import { EnvironmentTab } from "../env/EnvironmentTab";
 import { ProjectEnvSelector } from "../environment/ProjectEnvSelector";
+import { CpuSlider, MemorySlider } from "@/components/ui/resource-slider";
+import { useHostInfo } from "@/hooks/useResourceSettings";
 
 interface ProjectDetailProps {
   project: Project;
@@ -59,6 +62,7 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
   const { data: networkList = [] } = useNetworks();
   const { data: volumeList = [] } = useVolumes();
   const { data: dnsList } = useDnsList();
+  const { data: hostInfo } = useHostInfo();
   const createNetwork = useCreateNetwork();
   const addServiceMut = useAddService();
   const updateServiceMut = useUpdateService();
@@ -90,6 +94,8 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
     project.init_commands.length > 0 ? project.init_commands : [""]
   );
   const [watchMode, setWatchMode] = useState(project.watch_mode);
+  const [cpus, setCpus] = useState(project.cpus || "");
+  const [memory, setMemory] = useState(project.memory || "");
   const [volumeMounts, setVolumeMounts] = useState<VolumeMount[]>(project.volumes);
   const [projectNetworks, setProjectNetworks] = useState<ProjectNetwork[]>(project.project_networks || []);
   const [namedVolumes, setNamedVolumes] = useState<NamedVolume[]>(project.named_volumes || []);
@@ -110,11 +116,13 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
       selectedNetwork !== (project.network || "") ||
       JSON.stringify(initCommands.filter(Boolean)) !== JSON.stringify(project.init_commands) ||
       watchMode !== project.watch_mode ||
+      cpus !== (project.cpus || "") ||
+      memory !== (project.memory || "") ||
       JSON.stringify(volumeMounts) !== JSON.stringify(project.volumes) ||
       JSON.stringify(projectNetworks) !== JSON.stringify(project.project_networks || []) ||
       JSON.stringify(namedVolumes) !== JSON.stringify(project.named_volumes || []);
     setHasChanges(changed);
-  }, [dotenvPath, envCommand, remoteDebug, debugPort, ports, startupCommand, dnsDomain, dnsHostname, imageSource, imageName, dockerfile, selectedNetwork, initCommands, watchMode, volumeMounts, projectNetworks, namedVolumes, project]);
+  }, [dotenvPath, envCommand, remoteDebug, debugPort, ports, startupCommand, dnsDomain, dnsHostname, imageSource, imageName, dockerfile, selectedNetwork, initCommands, watchMode, cpus, memory, volumeMounts, projectNetworks, namedVolumes, project]);
 
   // Listen for logs
   useEffect(() => {
@@ -164,6 +172,8 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
     init_commands: initCommands.filter(Boolean),
     volumes: volumeMounts.filter((v) => v.source.trim() && v.target.trim()),
     watch_mode: watchMode,
+    cpus: cpus || null,
+    memory: memory || null,
     services: project.services,
     project_networks: projectNetworks.filter((n) => n.name.trim()),
     named_volumes: namedVolumes.filter((v) => v.name.trim()),
@@ -322,7 +332,7 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
                   image: null, dockerfile: null, ports: [], volumes: null,
                   watch_mode: null, startup_command: null, remote_debug: null,
                   debug_port: null, env_vars: [], network: null, restart: null,
-                  depends_on: [],
+                  depends_on: [], cpus: null, memory: null,
                 },
               });
               setActiveTab(id);
@@ -807,6 +817,8 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
                       network: null,
                       restart: null,
                       depends_on: [],
+                      cpus: null,
+                      memory: null,
                     },
                   });
                   setActiveTab(id);
@@ -927,6 +939,18 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
             <p className="text-[10px] text-muted-foreground">
               Override the default container CMD.
             </p>
+          </div>
+
+          {/* Resource Limits */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Cpu className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm">Resource Limits</span>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <CpuSlider value={cpus} onChange={setCpus} maxCpus={hostInfo?.cpus ?? 16} compact />
+              <MemorySlider value={memory} onChange={setMemory} maxMemoryGiB={hostInfo ? Math.floor(hostInfo.memory_gib) : 64} compact />
+            </div>
           </div>
         </div>
 
@@ -1095,6 +1119,8 @@ function ServiceTabContent({ project, serviceId, onUpdate, onRemove, onOpenTermi
   const [dependsOn, setDependsOn] = useState<string[]>(service.depends_on || []);
   const [volumes, setVolumes] = useState<VolumeMount[]>(service.volumes || []);
   const [envVars, setEnvVars] = useState(service.env_vars);
+  const [cpus, setCpus] = useState(service.cpus || "");
+  const [memory, setMemory] = useState(service.memory || "");
 
   useEffect(() => {
     setName(service.name);
@@ -1108,6 +1134,8 @@ function ServiceTabContent({ project, serviceId, onUpdate, onRemove, onOpenTermi
     setDependsOn(service.depends_on || []);
     setVolumes(service.volumes || []);
     setEnvVars(service.env_vars);
+    setCpus(service.cpus || "");
+    setMemory(service.memory || "");
   }, [service]);
 
   const handleSave = () => {
@@ -1123,6 +1151,8 @@ function ServiceTabContent({ project, serviceId, onUpdate, onRemove, onOpenTermi
       depends_on: dependsOn.filter(Boolean),
       volumes: volumes.length > 0 ? volumes : null,
       env_vars: envVars,
+      cpus: cpus || null,
+      memory: memory || null,
     });
   };
 
@@ -1298,6 +1328,9 @@ function ServiceTabContent({ project, serviceId, onUpdate, onRemove, onOpenTermi
         <p className="text-[10px] text-muted-foreground">Container restart behavior when it exits.</p>
       </div>
 
+      {/* Resource Limits */}
+      <ServiceResourceSliders cpus={cpus} setCpus={setCpus} memory={memory} setMemory={setMemory} />
+
       {/* Environment Variables */}
       <div className="glass-panel rounded-lg p-4 space-y-3">
         <h3 className="text-sm font-semibold">Environment Variables</h3>
@@ -1332,5 +1365,26 @@ function ServiceTabContent({ project, serviceId, onUpdate, onRemove, onOpenTermi
         <Button size="sm" variant="destructive" onClick={() => onRemove(serviceId)}><Trash2 className="h-3.5 w-3.5 mr-1" /> Remove</Button>
       </div>
     </>
+  );
+}
+
+// ─── ServiceResourceSliders (shared between ServiceTabContent) ─────────────
+
+function ServiceResourceSliders({ cpus, setCpus, memory, setMemory }: {
+  cpus: string; setCpus: (v: string) => void;
+  memory: string; setMemory: (v: string) => void;
+}) {
+  const { data: hostInfo } = useHostInfo();
+  return (
+    <div className="glass-panel rounded-lg p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <Cpu className="h-4 w-4 text-muted-foreground" />
+        <h3 className="text-sm font-semibold">Resource Limits</h3>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <CpuSlider value={cpus} onChange={setCpus} maxCpus={hostInfo?.cpus ?? 16} />
+        <MemorySlider value={memory} onChange={setMemory} maxMemoryGiB={hostInfo ? Math.floor(hostInfo.memory_gib) : 64} />
+      </div>
+    </div>
   );
 }

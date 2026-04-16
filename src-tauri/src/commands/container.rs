@@ -49,6 +49,8 @@ pub async fn run_container(
     name: Option<String>,
     ports: Option<String>,
     env_vars: Option<Vec<String>>,
+    cpus: Option<String>,
+    memory: Option<String>,
 ) -> Result<String, String> {
     let mut args: Vec<String> = vec!["run".into(), "-d".into()];
 
@@ -56,6 +58,20 @@ pub async fn run_container(
         if !n.is_empty() {
             args.push("--name".into());
             args.push(n);
+        }
+    }
+
+    if let Some(ref c) = cpus {
+        if !c.is_empty() {
+            args.push("--cpus".into());
+            args.push(c.clone());
+        }
+    }
+
+    if let Some(ref m) = memory {
+        if !m.is_empty() {
+            args.push("--memory".into());
+            args.push(m.clone());
         }
     }
 

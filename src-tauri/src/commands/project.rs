@@ -383,6 +383,8 @@ pub async fn add_project(
         init_commands: Vec::new(),
         volumes: Vec::new(),
         watch_mode: true,
+        cpus: None,
+        memory: None,
         services: Vec::new(),
         project_networks: Vec::new(),
         named_volumes: Vec::new(),
@@ -713,6 +715,20 @@ async fn dockerfile_up(
     // Volume mounts (watch mode + additional)
     run_args.extend(build_volume_args(project));
 
+    // Resource limits (CPU / Memory)
+    if let Some(ref c) = project.cpus {
+        if !c.is_empty() {
+            run_args.push("--cpus".to_string());
+            run_args.push(c.clone());
+        }
+    }
+    if let Some(ref m) = project.memory {
+        if !m.is_empty() {
+            run_args.push("--memory".to_string());
+            run_args.push(m.clone());
+        }
+    }
+
     // Network
     if let Some(ref net) = project.network {
         if !net.trim().is_empty() {
@@ -1028,6 +1044,8 @@ struct ResolvedService {
     env_vars: Vec<EnvVarEntry>,
     network: Option<String>,
     restart: Option<String>,
+    cpus: Option<String>,
+    memory: Option<String>,
 }
 
 fn resolve_service(project: &Project, svc: &Service) -> ResolvedService {
@@ -1057,6 +1075,8 @@ fn resolve_service(project: &Project, svc: &Service) -> ResolvedService {
         env_vars: merged_env,
         network: svc.network.clone().or_else(|| project.network.clone()),
         restart: svc.restart.clone(),
+        cpus: svc.cpus.clone().or_else(|| project.cpus.clone()),
+        memory: svc.memory.clone().or_else(|| project.memory.clone()),
     }
 }
 
@@ -1171,6 +1191,20 @@ async fn multi_service_up(
                 mount_str.push_str(":ro");
             }
             run_args.push(mount_str);
+        }
+
+        // Resource limits (CPU / Memory)
+        if let Some(ref c) = resolved.cpus {
+            if !c.is_empty() {
+                run_args.push("--cpus".to_string());
+                run_args.push(c.clone());
+            }
+        }
+        if let Some(ref m) = resolved.memory {
+            if !m.is_empty() {
+                run_args.push("--memory".to_string());
+                run_args.push(m.clone());
+            }
         }
 
         // Network
@@ -1564,6 +1598,35 @@ pub async fn import_compose(
             })
             .unwrap_or_default();
 
+        // Resource limits: deploy.resources.limits.cpus / memory
+        let cpus = svc_val
+            .get("deploy")
+            .and_then(|d| d.get("resources"))
+            .and_then(|r| r.get("limits"))
+            .and_then(|l| l.get("cpus"))
+            .and_then(|v| match v {
+                serde_yaml::Value::String(s) => Some(s.clone()),
+                serde_yaml::Value::Number(n) => Some(n.to_string()),
+                _ => None,
+            })
+            .or_else(|| {
+                svc_val.get("cpus").and_then(|v| match v {
+                    serde_yaml::Value::String(s) => Some(s.clone()),
+                    serde_yaml::Value::Number(n) => Some(n.to_string()),
+                    _ => None,
+                })
+            });
+        let memory = svc_val
+            .get("deploy")
+            .and_then(|d| d.get("resources"))
+            .and_then(|r| r.get("limits"))
+            .and_then(|l| l.get("memory"))
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+            .or_else(|| {
+                svc_val.get("mem_limit").and_then(|v| v.as_str()).map(|s| s.to_string())
+            });
+
         new_services.push(Service {
             id: uuid::Uuid::new_v4().to_string(),
             name,
@@ -1579,6 +1642,8 @@ pub async fn import_compose(
             network,
             restart,
             depends_on,
+            cpus,
+            memory,
         });
     }
 
@@ -1745,6 +1810,8 @@ pub async fn export_compose(project_id: String, file_path: String) -> Result<(),
             network: project.network.clone(),
             restart: None,
             depends_on: vec![],
+            cpus: project.cpus.clone(),
+            memory: project.memory.clone(),
         }]
     } else {
         project.services.clone()
@@ -1852,6 +1919,43 @@ pub async fn export_compose(project_id: String, file_path: String) -> Result<(),
                 serde_yaml::Value::String("depends_on".to_string()),
                 serde_yaml::Value::Sequence(deps_seq),
             );
+        }
+
+        // Resource limits → deploy.resources.limits
+        if svc.cpus.is_some() || svc.memory.is_some() {
+            let mut limits = serde_yaml::Mapping::new();
+            if let Some(ref c) = svc.cpus {
+                if !c.is_empty() {
+                    limits.insert(
+                        serde_yaml::Value::String("cpus".to_string()),
+                        serde_yaml::Value::String(c.clone()),
+                    );
+                }
+            }
+            if let Some(ref m) = svc.memory {
+                if !m.is_empty() {
+                    limits.insert(
+                        serde_yaml::Value::String("memory".to_string()),
+                        serde_yaml::Value::String(m.clone()),
+                    );
+                }
+            }
+            if !limits.is_empty() {
+                let mut resources = serde_yaml::Mapping::new();
+                resources.insert(
+                    serde_yaml::Value::String("limits".to_string()),
+                    serde_yaml::Value::Mapping(limits),
+                );
+                let mut deploy = serde_yaml::Mapping::new();
+                deploy.insert(
+                    serde_yaml::Value::String("resources".to_string()),
+                    serde_yaml::Value::Mapping(resources),
+                );
+                svc_map.insert(
+                    serde_yaml::Value::String("deploy".to_string()),
+                    serde_yaml::Value::Mapping(deploy),
+                );
+            }
         }
 
         services_map.insert(
