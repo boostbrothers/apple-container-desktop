@@ -35,9 +35,23 @@
 - Apple Silicon Mac
 - [Apple Container](https://github.com/apple/container) 설치 (`/usr/local/bin/container`)
 
+### 빠른 설치 (권장)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/boostbrothers/apple-container-desktop/main/install.sh | sh
+```
+
+베타 버전을 설치하려면:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/boostbrothers/apple-container-desktop/main/install.sh | sh -s -- --beta
+```
+
+설치 스크립트가 GitHub에서 최신 릴리스를 자동으로 다운로드하고, DMG를 마운트하여 `/Applications`에 앱을 설치합니다.
+
 ### GitHub Releases에서 다운로드
 
-빌드된 바이너리는 [Releases](https://github.com/boostbrothers/apple-container-desktop/releases) 페이지에서 다운로드할 수 있습니다.
+또는 [Releases](https://github.com/boostbrothers/apple-container-desktop/releases) 페이지에서 빌드된 바이너리를 직접 다운로드할 수 있습니다.
 
 | 플랫폼 | 파일 |
 |--------|------|

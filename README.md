@@ -35,9 +35,23 @@ Built with **Tauri 2** (Rust) + **React 19** + **TypeScript**.
 - Apple Silicon Mac
 - [Apple Container](https://github.com/apple/container) installed (`/usr/local/bin/container`)
 
+### Quick Install (Recommended)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/boostbrothers/apple-container-desktop/main/install.sh | sh
+```
+
+To install the latest beta version:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/boostbrothers/apple-container-desktop/main/install.sh | sh -s -- --beta
+```
+
+The installer automatically downloads the latest release from GitHub, mounts the DMG, and installs the app to `/Applications`.
+
 ### Download from GitHub Releases
 
-Pre-built binaries are available on the [Releases](https://github.com/boostbrothers/apple-container-desktop/releases) page.
+Alternatively, you can download pre-built binaries from the [Releases](https://github.com/boostbrothers/apple-container-desktop/releases) page.
 
 | Platform | File |
 |----------|------|
