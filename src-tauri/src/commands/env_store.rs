@@ -236,9 +236,22 @@ pub async fn reimport_dotenv(profile_id: String, file_path: String) -> Result<En
 // ─── Infisical Integration ───────────────────────────────────────────────────
 
 #[tauri::command]
-pub async fn configure_profile_infisical(profile_id: String, config: InfisicalConfig) -> Result<EnvProfile, String> {
+pub async fn configure_profile_infisical(profile_id: String, mut config: InfisicalConfig) -> Result<EnvProfile, String> {
     let mut store = load_store()?;
     let profile = find_profile_mut(&mut store, &profile_id)?;
+
+    // If frontend sent back the masked placeholder, preserve existing encrypted token
+    if let Some(ref token) = config.token {
+        if token == "••••••••" {
+            config.token = profile
+                .infisical_config
+                .as_ref()
+                .and_then(|c| c.token.clone());
+        } else if !token.is_empty() {
+            config.token = Some(crypto::ensure_encrypted(token)?);
+        }
+    }
+
     profile.infisical_config = Some(config);
     let result = mask_profile_secrets(profile.clone());
     save_store(&store)?;
@@ -262,7 +275,8 @@ pub async fn sync_profile_infisical(profile_id: String) -> Result<EnvProfile, St
     ];
     if let Some(ref token) = cfg.token {
         if !token.is_empty() {
-            args.push(format!("--token={}", token));
+            let decrypted_token = crypto::decrypt(token)?;
+            args.push(format!("--token={}", decrypted_token));
         }
     }
     let str_args: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
@@ -320,7 +334,8 @@ pub async fn test_profile_infisical(profile_id: String) -> Result<bool, String> 
     ];
     if let Some(ref token) = cfg.token {
         if !token.is_empty() {
-            args.push(format!("--token={}", token));
+            let decrypted_token = crypto::decrypt(token)?;
+            args.push(format!("--token={}", decrypted_token));
         }
     }
     let str_args: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
@@ -398,6 +413,12 @@ fn mask_global_var_secret(mut var: GlobalEnvVar) -> GlobalEnvVar {
 /// Mask all secret values in a profile for frontend display.
 fn mask_profile_secrets(mut profile: EnvProfile) -> EnvProfile {
     profile.env_vars = profile.env_vars.into_iter().map(mask_global_var_secret).collect();
+    // Mask Infisical service token
+    if let Some(ref mut cfg) = profile.infisical_config {
+        if cfg.token.as_ref().is_some_and(|t| !t.is_empty()) {
+            cfg.token = Some("••••••••".to_string());
+        }
+    }
     profile
 }
 
