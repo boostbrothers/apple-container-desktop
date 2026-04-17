@@ -9,6 +9,8 @@
     "opener:default",
     "updater:default",
     "dialog:allow-open",
+    "dialog:allow-save",
+    "clipboard-manager:allow-write-text",
     "liquid-glass:default"
   ]
 }

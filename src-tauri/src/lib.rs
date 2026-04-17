@@ -10,6 +10,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_liquid_glass::init())
         .invoke_handler(tauri::generate_handler![
             // System
@@ -113,6 +114,8 @@ pub fn run() {
             commands::proxy::dns_create,
             commands::proxy::dns_delete,
             commands::proxy::dns_set_default,
+            // Log export
+            commands::log_export::write_log_file,
         ])
         .setup(|app| {
             tray::create_tray(app)?;

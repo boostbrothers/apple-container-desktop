@@ -28,6 +28,7 @@ serde_yaml = "0.9"
 uuid = { version = "1", features = ["v4"] }
 dirs = "6"
 tauri-plugin-dialog = "2"
+tauri-plugin-clipboard-manager = "2"
 tauri-plugin-liquid-glass = "0"
 image = { version = "0.25", default-features = false, features = ["png"] }
 tempfile = "3"
