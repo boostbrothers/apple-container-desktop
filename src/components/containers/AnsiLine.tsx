@@ -1,14 +1,26 @@
 import Anser, { type AnserJsonEntry } from "anser";
-import type { CSSProperties } from "react";
+import { memo, type CSSProperties } from "react";
+import { brightenForDarkBg } from "@/lib/ansi-palette";
 
 interface AnsiLineProps {
   text: string;
+  highlight?: {
+    query: string;
+    isActive: boolean;
+  };
+}
+
+const LINE_STYLE: CSSProperties = { minHeight: "1em" };
+
+function rgbOrUndefined(value: string | null | undefined): string | undefined {
+  if (!value) return undefined;
+  return `rgb(${value})`;
 }
 
 function entryStyle(entry: AnserJsonEntry): CSSProperties {
   const style: CSSProperties = {};
-  let color = entry.fg ? `rgb(${entry.fg})` : undefined;
-  let background = entry.bg ? `rgb(${entry.bg})` : undefined;
+  let color = rgbOrUndefined(brightenForDarkBg(entry.fg));
+  let background = rgbOrUndefined(entry.bg);
 
   const decorations = entry.decorations ?? [];
 
@@ -28,11 +40,50 @@ function entryStyle(entry: AnserJsonEntry): CSSProperties {
       ? `${style.textDecoration} line-through`
       : "line-through";
   }
+  // `hidden`: keep layout (visibility), content invisible
+  if (decorations.includes("hidden")) style.visibility = "hidden";
+  // `blink`: intentionally ignored for accessibility / user comfort
 
   return style;
 }
 
-export function AnsiLine({ text }: AnsiLineProps) {
+function renderContent(content: string, highlight: AnsiLineProps["highlight"]) {
+  if (!highlight || !highlight.query) return content;
+  const query = highlight.query;
+  const lowerContent = content.toLowerCase();
+  const lowerQuery = query.toLowerCase();
+  const parts: Array<string | { match: string }> = [];
+  let cursor = 0;
+  while (cursor < content.length) {
+    const idx = lowerContent.indexOf(lowerQuery, cursor);
+    if (idx === -1) {
+      parts.push(content.slice(cursor));
+      break;
+    }
+    if (idx > cursor) parts.push(content.slice(cursor, idx));
+    parts.push({ match: content.slice(idx, idx + query.length) });
+    cursor = idx + query.length;
+    if (query.length === 0) break;
+  }
+  return parts.map((part, i) =>
+    typeof part === "string" ? (
+      <span key={i}>{part}</span>
+    ) : (
+      <mark
+        key={i}
+        className={
+          highlight.isActive
+            ? "bg-yellow-300 text-black ring-2 ring-yellow-200 rounded-sm"
+            : "bg-yellow-400/70 text-black rounded-sm"
+        }
+      >
+        {part.match}
+      </mark>
+    )
+  );
+}
+
+function AnsiLineInner({ text, highlight }: AnsiLineProps) {
   let entries: AnserJsonEntry[];
   try {
     entries = Anser.ansiToJson(text, {
@@ -41,20 +92,22 @@ export function AnsiLine({ text }: AnsiLineProps) {
       use_classes: false,
     });
   } catch {
-    return <div style={{ minHeight: "1em" }}>{text}</div>;
+    return <div style={LINE_STYLE}>{text}</div>;
   }
 
   if (entries.length === 0) {
-    return <div style={{ minHeight: "1em" }}>&nbsp;</div>;
+    return <div style={LINE_STYLE}>&nbsp;</div>;
   }
 
   return (
-    <div style={{ minHeight: "1em" }}>
+    <div style={LINE_STYLE}>
       {entries.map((entry, index) => (
         <span key={index} style={entryStyle(entry)}>
-          {entry.content}
+          {renderContent(entry.content, highlight)}
         </span>
       ))}
     </div>
   );
 }
+
+export const AnsiLine = memo(AnsiLineInner);
