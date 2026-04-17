@@ -7,6 +7,7 @@ import { api } from "../../lib/tauri";
 import { LogView } from "./LogView";
 import { LogToolbar } from "./LogToolbar";
 import { pushBounded } from "@/lib/log-buffer";
+import { copyLogs, exportLogs } from "@/lib/log-export";
 
 interface ContainerLogsProps {
   containerId: string;
@@ -116,6 +117,14 @@ export function ContainerLogs({ containerId, onBack }: ContainerLogsProps) {
     setActiveIndex((prev) => (prev - 1 + matches.length) % matches.length);
   }, [matches.length]);
 
+  const handleCopy = useCallback(async () => {
+    await copyLogs(visibleLogs);
+  }, [visibleLogs]);
+
+  const handleExport = useCallback(async () => {
+    await exportLogs(visibleLogs, containerId);
+  }, [visibleLogs, containerId]);
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="shrink-0 -mx-4 -mt-4 px-4 pt-4 pb-3 glass-panel border-b border-[var(--glass-border)] flex flex-col gap-2">
@@ -148,6 +157,9 @@ export function ContainerLogs({ containerId, onBack }: ContainerLogsProps) {
           onSearchNext={handleSearchNext}
           onSearchClose={handleSearchClose}
           searchInputRef={searchInputRef}
+          onCopy={handleCopy}
+          onExport={handleExport}
+          exportDisabled={visibleLogs.length === 0}
         />
       </div>
       <ScrollArea className="flex-1 min-h-0 rounded-xl border border-[var(--glass-border)] bg-black/90 p-3 shadow-lg">
