@@ -110,4 +110,8 @@ function AnsiLineInner({ text, highlight }: AnsiLineProps) {
   );
 }
 
-export const AnsiLine = memo(AnsiLineInner);
+export const AnsiLine = memo(AnsiLineInner, (prev, next) =>
+  prev.text === next.text &&
+  prev.highlight?.query === next.highlight?.query &&
+  prev.highlight?.isActive === next.highlight?.isActive
+);
