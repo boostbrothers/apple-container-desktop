@@ -12,3 +12,4 @@ pub mod onboarding;
 pub mod update;
 pub mod volume;
 pub mod proxy;
+pub mod log_export;
