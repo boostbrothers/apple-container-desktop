@@ -98,6 +98,7 @@ export function ContainerLogs({ containerId, onBack }: ContainerLogsProps) {
   const handleSearchClose = useCallback(() => {
     setSearchOpen(false);
     setActiveIndex(0);
+    setAutoScroll(false);
   }, []);
 
   const handleSearchQueryChange = useCallback((value: string) => {

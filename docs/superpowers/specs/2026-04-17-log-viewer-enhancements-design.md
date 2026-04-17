@@ -139,7 +139,6 @@ export function brightenForDarkBg(rgb: string): string;
 
 - `Cmd+F` / `Ctrl+F` (macOS는 meta, 기타는 ctrl) → 검색 토글. `preventDefault()`.
 - 검색 입력 포커스 상태에서 `Esc` → 검색 닫기
-- 입력 필드 밖에서 `/` (단일 슬래시) → 검색 오픈 (Vim 스타일, 선택적 — 포함)
 
 ### Auto-Scroll 상호작용
 
