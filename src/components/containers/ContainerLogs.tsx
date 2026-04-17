@@ -76,6 +76,19 @@ export function ContainerLogs({ containerId, onBack }: ContainerLogsProps) {
     }
   }, [visibleLogs, effectiveAutoScroll]);
 
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const isFind = (e.metaKey || e.ctrlKey) && (e.key === "f" || e.key === "F");
+      if (isFind) {
+        e.preventDefault();
+        setSearchOpen(true);
+        requestAnimationFrame(() => searchInputRef.current?.focus());
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   const activeMatchId = matches.length > 0 ? matches[activeIndex] ?? null : null;
 
   const handleSearchToggle = useCallback(() => {
