@@ -1,24 +1,41 @@
 import { useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
+import Anser from "anser";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { api } from "../../lib/tauri";
 import { AnsiLine } from "./AnsiLine";
+import { pushBounded } from "@/lib/log-buffer";
 
 interface ContainerLogsProps {
   containerId: string;
   onBack: () => void;
 }
 
+export interface LogEntry {
+  id: number;
+  text: string;
+  plainText: string;
+}
+
+const MAX_LINES = 5000;
+
 export function ContainerLogs({ containerId, onBack }: ContainerLogsProps) {
-  const [logs, setLogs] = useState<string[]>([]);
+  const [logs, setLogs] = useState<LogEntry[]>([]);
   const [autoScroll, setAutoScroll] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const nextId = useRef(0);
 
   useEffect(() => {
     api.streamContainerLogs(containerId);
     const unlisten = listen<string>(`container-log-${containerId}`, (event) => {
-      setLogs((prev) => [...prev, event.payload]);
+      const text = event.payload;
+      const entry: LogEntry = {
+        id: nextId.current++,
+        text,
+        plainText: Anser.ansiToText(text),
+      };
+      setLogs((prev) => pushBounded(prev, entry, MAX_LINES));
     });
     return () => { unlisten.then((fn) => fn()); };
   }, [containerId]);
@@ -40,8 +57,8 @@ export function ContainerLogs({ containerId, onBack }: ContainerLogsProps) {
       </div>
       <ScrollArea className="flex-1 min-h-0 rounded-xl border border-[var(--glass-border)] bg-black/90 p-3 shadow-lg">
         <div className="text-xs text-zinc-200 font-mono whitespace-pre-wrap">
-          {logs.map((line, i) => (
-            <AnsiLine key={i} text={line} />
+          {logs.map((entry) => (
+            <AnsiLine key={entry.id} text={entry.text} />
           ))}
           <div ref={bottomRef} />
         </div>
