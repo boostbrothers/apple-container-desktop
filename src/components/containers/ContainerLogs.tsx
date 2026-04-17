@@ -3,6 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { api } from "../../lib/tauri";
+import { AnsiLine } from "./AnsiLine";
 
 interface ContainerLogsProps {
   containerId: string;
@@ -38,8 +39,12 @@ export function ContainerLogs({ containerId, onBack }: ContainerLogsProps) {
         </Button>
       </div>
       <ScrollArea className="flex-1 min-h-0 rounded-xl border border-[var(--glass-border)] bg-black/90 p-3 shadow-lg">
-        <pre className="text-xs text-green-400 font-mono whitespace-pre-wrap">{logs.join("\n")}</pre>
-        <div ref={bottomRef} />
+        <div className="text-xs text-zinc-200 font-mono whitespace-pre-wrap">
+          {logs.map((line, i) => (
+            <AnsiLine key={i} text={line} />
+          ))}
+          <div ref={bottomRef} />
+        </div>
       </ScrollArea>
     </div>
   );
