@@ -1,17 +1,19 @@
-import React, { useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, SquareTerminal, Copy, Globe } from "lucide-react";
 import { useContainerDetail, useContainerStats } from "../../hooks/useContainerDetail";
 import { useOpenTerminalExec, useProjects } from "../../hooks/useProjects";
 import { useDnsList } from "../../hooks/useDns";
+import { ContainerHeader } from "./ContainerHeader";
 
 interface ContainerDetailProps {
   containerId: string;
   onBack: () => void;
+  onViewLogs?: () => void;
+  onNavigateToProject?: (projectId: string) => void;
 }
 
-export function ContainerDetail({ containerId, onBack }: ContainerDetailProps) {
+export function ContainerDetail({ containerId, onBack, onViewLogs, onNavigateToProject }: ContainerDetailProps) {
   const { data: detail, isLoading, error } = useContainerDetail(containerId);
   const { data: stats } = useContainerStats(containerId);
   const openTerminal = useOpenTerminalExec();
@@ -20,15 +22,16 @@ export function ContainerDetail({ containerId, onBack }: ContainerDetailProps) {
 
   const [showRaw, setShowRaw] = useState(false);
 
+  const project = useMemo(
+    () => projects?.find((p) => p.container_ids.includes(containerId)) ?? null,
+    [projects, containerId]
+  );
+
   const domainUrl = useMemo(() => {
-    if (!projects) return null;
-    const project = projects.find(
-      (p) => p.container_ids.includes(containerId) && p.dns_hostname
-    );
-    if (!project) return null;
+    if (!project || !project.dns_hostname) return null;
     const domain = project.dns_domain || dnsList?.default_domain;
     return domain ? `${project.dns_hostname}.${domain}` : null;
-  }, [projects, containerId, dnsList]);
+  }, [project, dnsList]);
 
   if (isLoading) {
     return (
@@ -56,27 +59,15 @@ export function ContainerDetail({ containerId, onBack }: ContainerDetailProps) {
 
   return (
     <div className="min-w-0">
-      <div className="sticky -top-4 z-20 -mx-4 -mt-4 px-4 pt-4 pb-3 glass-panel border-b border-[var(--glass-border)] flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={onBack}>
-          <ArrowLeft className="mr-1 h-4 w-4" /> Back
-        </Button>
-        <h1 className="text-lg font-semibold">{detail.name}</h1>
-        <Badge variant={isRunning ? "default" : "secondary"}>{detail.state}</Badge>
-        {isRunning && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="ml-auto"
-            onClick={() => openTerminal.mutate(containerId)}
-            disabled={openTerminal.isPending}
-          >
-            <SquareTerminal className="h-3.5 w-3.5 mr-1" />
-            Terminal
-          </Button>
-        )}
-      </div>
+      <ContainerHeader
+        containerId={containerId}
+        view="inspect"
+        onBack={onBack}
+        onViewLogs={onViewLogs}
+        onNavigateToProject={onNavigateToProject}
+      />
 
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4 mt-4">
         {/* Terminal Exec */}
         {isRunning && (
           <section className="glass-section p-4">

@@ -6,12 +6,15 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { api } from "../../lib/tauri";
 import { LogView } from "./LogView";
 import { LogToolbar } from "./LogToolbar";
+import { ContainerHeader } from "./ContainerHeader";
 import { pushBounded } from "@/lib/log-buffer";
 import { copyLogs, exportLogs } from "@/lib/log-export";
 
 interface ContainerLogsProps {
   containerId: string;
   onBack: () => void;
+  onViewInspect?: () => void;
+  onNavigateToProject?: (projectId: string) => void;
 }
 
 export interface LogEntry {
@@ -22,7 +25,7 @@ export interface LogEntry {
 
 const MAX_LINES = 5000;
 
-export function ContainerLogs({ containerId, onBack }: ContainerLogsProps) {
+export function ContainerLogs({ containerId, onBack, onViewInspect, onNavigateToProject }: ContainerLogsProps) {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [autoScroll, setAutoScroll] = useState(true);
   const [filter, setFilter] = useState("");
@@ -127,21 +130,14 @@ export function ContainerLogs({ containerId, onBack }: ContainerLogsProps) {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="shrink-0 -mx-4 -mt-4 px-4 pt-4 pb-3 glass-panel border-b border-[var(--glass-border)] flex flex-col gap-2">
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={onBack}>← Back</Button>
-          <span className="text-sm font-medium">Logs: {containerId.slice(0, 12)}</span>
-          <Button
-            variant="outline"
-            size="sm"
-            className="ml-auto"
-            onClick={() => setAutoScroll(!autoScroll)}
-            disabled={searchActive}
-            title={searchActive ? "Auto-scroll paused while searching" : undefined}
-          >
-            {autoScroll ? "Auto-scroll: On" : "Auto-scroll: Off"}
-          </Button>
-        </div>
+      <ContainerHeader
+        containerId={containerId}
+        view="logs"
+        onBack={onBack}
+        onViewInspect={onViewInspect}
+        onNavigateToProject={onNavigateToProject}
+      />
+      <div className="shrink-0 mt-3">
         <LogToolbar
           filter={filter}
           onFilterChange={setFilter}
@@ -162,7 +158,7 @@ export function ContainerLogs({ containerId, onBack }: ContainerLogsProps) {
           exportDisabled={visibleLogs.length === 0}
         />
       </div>
-      <ScrollArea className="flex-1 min-h-0 rounded-xl border border-[var(--glass-border)] bg-black/90 p-3 shadow-lg">
+      <ScrollArea className="flex-1 min-h-0 mt-2 rounded-xl border border-[var(--glass-border)] bg-black/90 p-3 shadow-lg">
         <LogView
           entries={visibleLogs}
           query={searchActive ? searchQuery : ""}
@@ -170,6 +166,17 @@ export function ContainerLogs({ containerId, onBack }: ContainerLogsProps) {
           bottomRef={bottomRef}
         />
       </ScrollArea>
+      <div className="shrink-0 mt-2 flex items-center justify-end">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setAutoScroll(!autoScroll)}
+          disabled={searchActive}
+          title={searchActive ? "Auto-scroll paused while searching" : undefined}
+        >
+          {autoScroll ? "Auto-scroll: On" : "Auto-scroll: Off"}
+        </Button>
+      </div>
     </div>
   );
 }

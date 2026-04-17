@@ -22,8 +22,7 @@ export function ContainerList({ composeFilter }: ContainerListProps) {
   const prune = usePruneContainers();
   const [filter, setFilter] = useState<Filter>("all");
   const [tab, setTab] = useState<Tab>("running");
-  const [logsContainerId, setLogsContainerId] = useState<string | null>(null);
-  const [inspectId, setInspectId] = useState<string | null>(null);
+  const [selectedContainer, setSelectedContainer] = useState<{ id: string; view: "inspect" | "logs" } | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const { data: allProjects } = useProjects();
 
@@ -73,12 +72,34 @@ export function ContainerList({ composeFilter }: ContainerListProps) {
     return <ProjectDetail project={selectedProject} onBack={() => setSelectedProjectId(null)} />;
   }
 
-  if (inspectId) {
-    return <ContainerDetail containerId={inspectId} onBack={() => setInspectId(null)} />;
+  if (selectedContainer?.view === "inspect") {
+    return (
+      <ContainerDetail
+        containerId={selectedContainer.id}
+        onBack={() => setSelectedContainer(null)}
+        onViewLogs={() => setSelectedContainer({ id: selectedContainer.id, view: "logs" })}
+        onNavigateToProject={(projectId) => {
+          setSelectedContainer(null);
+          setTab("projects");
+          setSelectedProjectId(projectId);
+        }}
+      />
+    );
   }
 
-  if (logsContainerId) {
-    return <ContainerLogs containerId={logsContainerId} onBack={() => setLogsContainerId(null)} />;
+  if (selectedContainer?.view === "logs") {
+    return (
+      <ContainerLogs
+        containerId={selectedContainer.id}
+        onBack={() => setSelectedContainer(null)}
+        onViewInspect={() => setSelectedContainer({ id: selectedContainer.id, view: "inspect" })}
+        onNavigateToProject={(projectId) => {
+          setSelectedContainer(null);
+          setTab("projects");
+          setSelectedProjectId(projectId);
+        }}
+      />
+    );
   }
 
   return (
@@ -148,8 +169,8 @@ export function ContainerList({ composeFilter }: ContainerListProps) {
                     <ContainerRow
                       key={container.id}
                       container={container}
-                      onViewLogs={setLogsContainerId}
-                      onInspect={setInspectId}
+                      onViewLogs={(id) => setSelectedContainer({ id, view: "logs" })}
+                      onInspect={(id) => setSelectedContainer({ id, view: "inspect" })}
                       domainUrl={container.hostname || null}
                       compact
                     />
@@ -169,8 +190,8 @@ export function ContainerList({ composeFilter }: ContainerListProps) {
                   <ContainerRow
                     key={container.id}
                     container={container}
-                    onViewLogs={setLogsContainerId}
-                    onInspect={setInspectId}
+                    onViewLogs={(id) => setSelectedContainer({ id, view: "logs" })}
+                    onInspect={(id) => setSelectedContainer({ id, view: "inspect" })}
                     domainUrl={container.hostname || null}
                   />
                 ))}
