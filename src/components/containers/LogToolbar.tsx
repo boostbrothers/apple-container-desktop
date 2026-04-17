@@ -1,4 +1,5 @@
-import { Search, X } from "lucide-react";
+import { useState } from "react";
+import { Check, Copy, Download, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -17,6 +18,9 @@ interface LogToolbarProps {
   onSearchNext: () => void;
   onSearchClose: () => void;
   searchInputRef: React.RefObject<HTMLInputElement | null>;
+  onCopy: () => Promise<void> | void;
+  onExport: () => Promise<void> | void;
+  exportDisabled: boolean;
 }
 
 export function LogToolbar({
@@ -34,7 +38,32 @@ export function LogToolbar({
   onSearchNext,
   onSearchClose,
   searchInputRef,
+  onCopy,
+  onExport,
+  exportDisabled,
 }: LogToolbarProps) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await onCopy();
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch (e) {
+      console.error("Copy failed:", e);
+      window.alert(`Copy failed: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      await onExport();
+    } catch (e) {
+      console.error("Export failed:", e);
+      window.alert(`Export failed: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-2">
@@ -61,6 +90,26 @@ export function LogToolbar({
         <span className="text-xs text-zinc-500 tabular-nums">
           {showingCount.toLocaleString()} / {totalCount.toLocaleString()}
         </span>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleCopy}
+          disabled={exportDisabled}
+          aria-label="Copy visible logs"
+          title="Copy visible logs"
+        >
+          {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleExport}
+          disabled={exportDisabled}
+          aria-label="Export visible logs"
+          title="Export visible logs"
+        >
+          <Download className="h-3.5 w-3.5" />
+        </Button>
         <Button
           variant={searchOpen ? "secondary" : "ghost"}
           size="sm"
